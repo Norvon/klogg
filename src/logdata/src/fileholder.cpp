@@ -56,9 +56,9 @@ void openFileByHandle( QFile* file )
     }
 #endif
     if ( !openedByHandle ) {
-        file->open( QIODevice::ReadOnly );
+        openedByHandle = file->open( QIODevice::ReadOnly );
     }
-    LOG_INFO << "QFile opened";
+    LOG_INFO << "QFile opened " << openedByHandle;
 }
 } // namespace
 

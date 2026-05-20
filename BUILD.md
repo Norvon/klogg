@@ -188,10 +188,11 @@ cmake --build --preset macos-arm64
 ```
 
 The preset writes build files to `build_root/macos-arm64`, builds only `arm64`,
-uses `/opt/homebrew/opt/qt` as the default Homebrew Qt prefix, and sets the
-deployment target to macOS 11.0. If Qt is installed elsewhere, override the
-prefix during configuration, for example `cmake --preset macos-arm64
--DCMAKE_PREFIX_PATH=<path_to_qt>`.
+uses `/opt/homebrew/opt/qt` as the default Homebrew Qt prefix, and disables
+tests for a focused application build. If Qt is installed elsewhere, override
+the prefix during configuration, for example `cmake --preset macos-arm64
+-DCMAKE_PREFIX_PATH=<path_to_qt>`. To force a deployment target, pass
+`-DKLOGG_OSX_DEPLOYMENT_TARGET=<target>`.
 
 By default, klogg will rely on cmake to figure out target MacOS version. Usually it uses build host version.
 To override default cmake value pass an option `-DKLOGG_OSX_DEPLOYMENT_TARGET=<target>` to cmake during configuration step,
@@ -199,7 +200,7 @@ To override default cmake value pass an option `-DKLOGG_OSX_DEPLOYMENT_TARGET=<t
 
 ## Running tests
 
-Tests are built by default. To turn them off pass `-DBUILD_TESTS:BOOL=OFF` to cmake.
+Tests are built by default. To turn them off pass `-DKLOGG_BUILD_TESTS:BOOL=OFF` to cmake.
 Tests use catch2 (bundled with klogg sources) and require Qt5Test module. Tests can be run using ctest tool provider by CMake:
 
 ```
