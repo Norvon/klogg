@@ -179,6 +179,20 @@ cmake --build .
 
 Binaries are placed into `build_root/output`.
 
+For an Apple Silicon build, use the macOS arm64 preset:
+
+```
+cd <path_to_klogg_repository_clone>
+cmake --preset macos-arm64
+cmake --build --preset macos-arm64
+```
+
+The preset writes build files to `build_root/macos-arm64`, builds only `arm64`,
+uses `/opt/homebrew/opt/qt` as the default Homebrew Qt prefix, and sets the
+deployment target to macOS 11.0. If Qt is installed elsewhere, override the
+prefix during configuration, for example `cmake --preset macos-arm64
+-DCMAKE_PREFIX_PATH=<path_to_qt>`.
+
 By default, klogg will rely on cmake to figure out target MacOS version. Usually it uses build host version.
 To override default cmake value pass an option `-DKLOGG_OSX_DEPLOYMENT_TARGET=<target>` to cmake during configuration step,
 `<target>` is one of `10.14`, `10.15`, `11`, `12`. Klogg's traget must be greater or equal to target used by Qt libraries.
