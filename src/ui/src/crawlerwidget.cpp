@@ -616,22 +616,11 @@ void CrawlerWidget::markLinesFromFiltered( const klogg::vector<LineNumber>& line
 void CrawlerWidget::applyConfiguration()
 {
     const auto& config = Configuration::get();
-    QFont font = config.mainFont();
+    const auto font = configuredViewFont();
 
     LOG_DEBUG << "CrawlerWidget::applyConfiguration";
 
     registerShortcuts();
-
-    // Whatever font we use, we should NOT use kerning
-    font.setKerning( false );
-    font.setFixedPitch( true );
-
-    // Necessary on systems doing subpixel positionning (e.g. Ubuntu 12.04)
-    if ( config.forceFontAntialiasing() ) {
-        font.setStyleStrategy( QFont::PreferAntialias );
-    }
-
-    font.setBold( config.useBoldFont() );
 
     if ( config.hideAnsiColorSequences() ) {
         logData_->setPrefilter( AnsiColorSequenceRegex );
@@ -1339,13 +1328,16 @@ void CrawlerWidget::saveSplitterSizes() const
 
 void CrawlerWidget::changeFontSize( bool increase )
 {
-    auto& fontConfig = Configuration::get();
-
-    auto fontInfo = QFontInfo( fontConfig.mainFont() );
+    QFont newFont = logMainView_->font();
+    auto fontInfo = QFontInfo( newFont );
     const auto availableSizes = FontUtils::availableFontSizes( fontInfo.family() );
 
     auto currentSize
         = std::find( availableSizes.cbegin(), availableSizes.cend(), fontInfo.pointSize() );
+    if ( currentSize == availableSizes.cend() ) {
+        return;
+    }
+
     if ( increase && currentSize != std::prev( availableSizes.cend() ) ) {
         currentSize = std::next( currentSize );
     }
@@ -1354,11 +1346,41 @@ void CrawlerWidget::changeFontSize( bool increase )
     }
 
     if ( currentSize != availableSizes.cend() ) {
-        QFont newFont{ fontInfo.family(), *currentSize };
+        newFont.setPointSize( *currentSize );
+        updateViewsFont( newFont );
+    }
+}
 
-        fontConfig.setMainFont( newFont );
-        logMainView_->updateFont( newFont );
-        filteredView_->updateFont( newFont );
+void CrawlerWidget::resetFontSize()
+{
+    updateViewsFont( configuredViewFont() );
+}
+
+QFont CrawlerWidget::configuredViewFont() const
+{
+    const auto& config = Configuration::get();
+    QFont font = config.mainFont();
+
+    // 日志列对齐依赖等宽绘制，不能启用字偶距。
+    font.setKerning( false );
+    font.setFixedPitch( true );
+
+    // 部分系统存在亚像素定位问题，需要强制抗锯齿策略。
+    if ( config.forceFontAntialiasing() ) {
+        font.setStyleStrategy( QFont::PreferAntialias );
+    }
+
+    font.setBold( config.useBoldFont() );
+
+    return font;
+}
+
+void CrawlerWidget::updateViewsFont( const QFont& font )
+{
+    logMainView_->updateFont( font );
+    for ( auto i = 0; i < tabbedFilteredView_->count(); ++i ) {
+        auto* fv = qobject_cast<FilteredView*>( tabbedFilteredView_->widget( i ) );
+        fv->updateFont( font );
     }
 }
 
@@ -1507,6 +1529,18 @@ void CrawlerWidget::registerShortcuts()
     ShortcutAction::registerShortcut(
         configuredShortcuts, shortcuts_, this, Qt::WidgetWithChildrenShortcut,
         ShortcutAction::CrawlerDecreaseTopViewSize, [ this ]() { changeTopViewSize( -1 ); } );
+
+    ShortcutAction::registerShortcut(
+        configuredShortcuts, shortcuts_, this, Qt::WidgetWithChildrenShortcut,
+        ShortcutAction::CrawlerIncreaseFontSize, [ this ]() { changeFontSize( true ); } );
+
+    ShortcutAction::registerShortcut(
+        configuredShortcuts, shortcuts_, this, Qt::WidgetWithChildrenShortcut,
+        ShortcutAction::CrawlerDecreaseFontSize, [ this ]() { changeFontSize( false ); } );
+
+    ShortcutAction::registerShortcut(
+        configuredShortcuts, shortcuts_, this, Qt::WidgetWithChildrenShortcut,
+        ShortcutAction::CrawlerResetFontSize, [ this ]() { resetFontSize(); } );
 
     const auto exitSearchKeySequence = QKeySequence( QKeySequence::Cancel );
     ShortcutAction::registerShortcut( exitSearchKeySequence.toString(), shortcuts_, this,

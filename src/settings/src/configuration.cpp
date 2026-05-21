@@ -314,16 +314,29 @@ void Configuration::retrieveFromStorage( QSettings& settings )
                         []( auto v ) { return v.toInt(); } );
     }
 
+    const auto normalizeShortcutAction = []( const QString& action ) {
+        if ( action == ShortcutAction::LogViewJumpToButtom ) {
+            return std::string{ ShortcutAction::LogViewJumpToBottom };
+        }
+        if ( action == "crawler.increase_font_size" ) {
+            return std::string{ ShortcutAction::CrawlerIncreaseFontSize };
+        }
+        if ( action == "crawler.decrease_font_size" ) {
+            return std::string{ ShortcutAction::CrawlerDecreaseFontSize };
+        }
+        if ( action == "crawler.reset_font_size" ) {
+            return std::string{ ShortcutAction::CrawlerResetFontSize };
+        }
+        return action.toStdString();
+    };
+
     if ( settings.contains( "shortcuts.mapping" ) ) {
         shortcuts_.clear();
 
         const auto mapping = settings.value( "shortcuts.mapping" ).toMap();
         for ( auto keys = mapping.begin(); keys != mapping.end(); ++keys ) {
-            auto action = keys.key().toStdString();
-            if ( action == ShortcutAction::LogViewJumpToButtom ) {
-                action = ShortcutAction::LogViewJumpToBottom;
-            }
-            shortcuts_.emplace( action, keys.value().toStringList() );
+            shortcuts_.insert_or_assign( normalizeShortcutAction( keys.key() ),
+                                         keys.value().toStringList() );
         }
 
         settings.remove( "shortcuts.mapping" );
@@ -334,11 +347,8 @@ void Configuration::retrieveFromStorage( QSettings& settings )
         settings.setArrayIndex( static_cast<int>( shortcutIndex ) );
         auto action = settings.value( "action", "" ).toString();
         if ( !action.isEmpty() ) {
-            if ( action == ShortcutAction::LogViewJumpToButtom ) {
-                action = ShortcutAction::LogViewJumpToBottom;
-            }
             const auto keys = settings.value( "keys", QStringList() ).toStringList();
-            shortcuts_.emplace( action.toStdString(), keys );
+            shortcuts_.insert_or_assign( normalizeShortcutAction( action ), keys );
         }
     }
     settings.endArray();

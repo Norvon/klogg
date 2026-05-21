@@ -337,6 +337,27 @@ const ShortcutAction::ShortcutList& ShortcutAction::defaultShortcutList()
             },
         },
         {
+            CrawlerIncreaseFontSize,
+            {
+                QApplication::tr( "Font size: Increase" ),
+                getKeyBindings( QKeySequence::ZoomIn ),
+            },
+        },
+        {
+            CrawlerDecreaseFontSize,
+            {
+                QApplication::tr( "Font size: Decrease" ),
+                getKeyBindings( QKeySequence::ZoomOut ),
+            },
+        },
+        {
+            CrawlerResetFontSize,
+            {
+                QApplication::tr( "Font size: Reset" ),
+                QStringList{ "Ctrl+0" },
+            },
+        },
+        {
             CrawlerEnableCaseMatching,
             {
                 QApplication::tr( "Enable case matching" ),

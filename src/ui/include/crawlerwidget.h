@@ -45,6 +45,7 @@
 
 #include <QCheckBox>
 #include <QComboBox>
+#include <QFont>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QMenu>
@@ -350,6 +351,9 @@ class CrawlerWidget : public QSplitter,
     void saveSplitterSizes() const;
 
     void changeFontSize( bool increase );
+    void resetFontSize();
+    QFont configuredViewFont() const;
+    void updateViewsFont( const QFont& font );
 
     // Palette for error notification (yellow background)
     static const QPalette ErrorPalette;
