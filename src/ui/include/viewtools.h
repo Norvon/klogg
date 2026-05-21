@@ -63,7 +63,14 @@ class ElasticHook : public QObject {
         allowHook_ = allow;
         if ( !allow ) {
             hooked_ = false;
+            held_ = false;
+            position_ = 0;
+            if ( timer_id_ != 0 ) {
+                killTimer( timer_id_ );
+                timer_id_ = 0;
+            }
             Q_EMIT hooked( false );
+            Q_EMIT lengthChanged();
         }
     }
 

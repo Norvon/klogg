@@ -20,6 +20,7 @@
 #include <catch2/catch.hpp>
 
 #include <QSignalSpy>
+#include <QScrollBar>
 #include <QTemporaryFile>
 #include <QTest>
 #include <QTimer>
@@ -148,6 +149,47 @@ struct CrawlerWidget::access_by<CrawlerWidgetPrivate> {
     {
         crawler->grab();
     }
+
+    int filteredVerticalScrollMaximum() const
+    {
+        return crawler->filteredView_->verticalScrollBar()->maximum();
+    }
+
+    LineNumber filteredTopLine() const
+    {
+        return crawler->filteredView_->getTopLine();
+    }
+
+    void scrollFilteredView( int yDelta )
+    {
+        auto* viewport = crawler->filteredView_->viewport();
+        const auto position = viewport->rect().center();
+        QWheelEvent wheelEvent( position, viewport->mapToGlobal( position ), QPoint(),
+                                QPoint( 0, yDelta ), Qt::NoButton, Qt::NoModifier,
+                                Qt::NoScrollPhase, false );
+        QApplication::sendEvent( viewport, &wheelEvent );
+    }
+
+    void scrollFilteredViewDown()
+    {
+        scrollFilteredView( -120 );
+    }
+
+    void scrollFilteredViewUp()
+    {
+        scrollFilteredView( 120 );
+    }
+
+    void scrollFilteredViewToBottom()
+    {
+        auto* scrollBar = crawler->filteredView_->verticalScrollBar();
+        scrollBar->setValue( scrollBar->maximum() );
+    }
+
+    void enableFollowMode()
+    {
+        Q_EMIT crawler->followSet( true );
+    }
 };
 
 using CrawlerWidgetVisitor = CrawlerWidget::access_by<CrawlerWidgetPrivate>;
@@ -211,6 +253,44 @@ SCENARIO( "Crawler widget search", "[ui]" )
                 THEN( "text has same number of lines" )
                 {
                     REQUIRE( text.split( QChar::LineFeed ).size() == SL_NB_LINES );
+                }
+            }
+
+            AND_WHEN( "scroll filtered view" )
+            {
+                crawlerVisitor.crawler->resize( 1200, 600 );
+                crawlerVisitor.crawler->show();
+                REQUIRE( QTest::qWaitForWindowExposed( crawlerVisitor.crawler.get() ) );
+
+                const auto initialTopLine = crawlerVisitor.filteredTopLine();
+                crawlerVisitor.scrollFilteredViewDown();
+
+                THEN( "filtered view scrolls" )
+                {
+                    REQUIRE( crawlerVisitor.filteredVerticalScrollMaximum() > 0 );
+                    REQUIRE( crawlerVisitor.filteredTopLine() > initialTopLine );
+                }
+            }
+
+            AND_WHEN( "follow mode is enabled and filtered view is overscrolled at the bottom" )
+            {
+                crawlerVisitor.crawler->resize( 1200, 600 );
+                crawlerVisitor.crawler->show();
+                REQUIRE( QTest::qWaitForWindowExposed( crawlerVisitor.crawler.get() ) );
+
+                crawlerVisitor.scrollFilteredViewToBottom();
+                crawlerVisitor.enableFollowMode();
+                for ( auto i = 0; i < 5; ++i ) {
+                    crawlerVisitor.scrollFilteredViewDown();
+                }
+
+                const auto initialTopLine = crawlerVisitor.filteredTopLine();
+                crawlerVisitor.scrollFilteredViewUp();
+
+                THEN( "filtered view still scrolls away from the bottom" )
+                {
+                    REQUIRE( crawlerVisitor.filteredVerticalScrollMaximum() > 0 );
+                    REQUIRE( crawlerVisitor.filteredTopLine() < initialTopLine );
                 }
             }
         }

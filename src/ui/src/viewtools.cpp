@@ -27,6 +27,10 @@ void ElasticHook::move( int value )
 {
     static constexpr int MAX_POSITION = 2000;
 
+    if ( !allowHook_ ) {
+        return;
+    }
+
     if ( timer_id_ == 0 )
         timer_id_ = startTimer( TIMER_PERIOD_MS );
 

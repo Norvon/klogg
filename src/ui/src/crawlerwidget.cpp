@@ -640,7 +640,8 @@ void CrawlerWidget::applyConfiguration()
     for ( auto i = 0; i < tabbedFilteredView_->count(); ++i ) {
         auto fv = qobject_cast<FilteredView*>( tabbedFilteredView_->widget( i ) );
         fv->setLineNumbersVisible( config.filteredLineNumbersVisible() );
-        fv->allowFollowMode( isFollowModeAllowed );
+        // 主视图跟随文件时，筛选结果仍然必须能自由滚动。
+        fv->allowFollowMode( false );
         fv->updateFont( font );
     }
 
@@ -964,6 +965,7 @@ void CrawlerWidget::setup()
     filteredView_ = new FilteredView( logFilteredData_.get(), quickFindPattern_.get() );
     filteredViewsData_[ filteredView_ ] = logFilteredData_;
     filteredView_->setContentsMargins( 2, 0, 2, 0 );
+    filteredView_->allowFollowMode( false );
 
     overviewWidget_->setOverview( &overview_ );
     overviewWidget_->setParent( logMainView_ );
@@ -1408,10 +1410,6 @@ void CrawlerWidget::connectAllFilteredViewSlots( FilteredView* view )
 
     connect( view, &FilteredView::mouseLeftHoveringZone, overviewWidget_,
              &OverviewWidget::removeHighlight );
-
-    connect( this, &CrawlerWidget::followSet, view, &FilteredView::followSet );
-
-    connect( view, &FilteredView::followModeChanged, this, &CrawlerWidget::followModeChanged );
 
     connect( this, &CrawlerWidget::textWrapSet, view, &FilteredView::textWrapSet );
 
