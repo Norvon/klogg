@@ -1312,6 +1312,21 @@
         <translation>減少主要檢視</translation>
     </message>
     <message>
+        <location filename="../../settings/src/shortcuts.cpp" line="342"/>
+        <source>Font size: Increase</source>
+        <translation>字型大小：放大</translation>
+    </message>
+    <message>
+        <location filename="../../settings/src/shortcuts.cpp" line="349"/>
+        <source>Font size: Decrease</source>
+        <translation>字型大小：縮小</translation>
+    </message>
+    <message>
+        <location filename="../../settings/src/shortcuts.cpp" line="356"/>
+        <source>Font size: Reset</source>
+        <translation>字型大小：重設</translation>
+    </message>
+    <message>
         <location filename="../../settings/src/shortcuts.cpp" line="209"/>
         <source>QuickFind: Find next</source>
         <translation>快速尋找：找下一個</translation>

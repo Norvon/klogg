@@ -430,18 +430,20 @@ int MainWindow::installLanguage( QString lang )
 
     QString qtPath( ":/i18n/qt_" + lang + ".qm" );
     QResource qtTranslations( qtPath );
-    if ( !mQtTranslator.load( qtTranslations.data(), (int)qtTranslations.size() ) ) {
-        LOG_ERROR << "load fail";
-        return -1;
+    if ( qtTranslations.isValid()
+         && mQtTranslator.load( qtTranslations.data(), (int)qtTranslations.size() ) ) {
+        if ( !QApplication::installTranslator( &mQtTranslator ) ) {
+            LOG_ERROR << "install fail";
+        }
     }
-    if ( !QApplication::installTranslator( &mQtTranslator ) ) {
-        LOG_ERROR << "install fail";
-        return -1;
+    else {
+        LOG_WARNING << "No Qt translation for language " << lang;
     }
 
     QString appPath( ":/i18n/" + lang + ".qm" );
     QResource appTranslations( appPath );
-    if ( !mTranslator.load( appTranslations.data(), (int)appTranslations.size() ) ) {
+    if ( !appTranslations.isValid()
+         || !mTranslator.load( appTranslations.data(), (int)appTranslations.size() ) ) {
         LOG_ERROR << "load fail";
         return -1;
     }

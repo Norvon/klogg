@@ -106,6 +106,7 @@ class OptionsDialog : public QDialog, public Ui::OptionsDialog {
     void setupLanguageList();
 
     int updateTranslate();
+    void retranslateDynamicUi();
 
     void buildShortcutsTable(bool useDefaultsOnly);
 

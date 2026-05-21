@@ -1312,6 +1312,21 @@
         <translation>Decrease main view</translation>
     </message>
     <message>
+        <location filename="../../settings/src/shortcuts.cpp" line="342"/>
+        <source>Font size: Increase</source>
+        <translation>Font size: Increase</translation>
+    </message>
+    <message>
+        <location filename="../../settings/src/shortcuts.cpp" line="349"/>
+        <source>Font size: Decrease</source>
+        <translation>Font size: Decrease</translation>
+    </message>
+    <message>
+        <location filename="../../settings/src/shortcuts.cpp" line="356"/>
+        <source>Font size: Reset</source>
+        <translation>Font size: Reset</translation>
+    </message>
+    <message>
         <location filename="../../settings/src/shortcuts.cpp" line="209"/>
         <source>QuickFind: Find next</source>
         <translation>QuickFind: Find next</translation>

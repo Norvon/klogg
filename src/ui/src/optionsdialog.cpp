@@ -69,6 +69,7 @@ OptionsDialog::OptionsDialog( QWidget* parent )
     setupStyles();
     setupEncodings();
     setupLanguageList();
+    retranslateDynamicUi();
 
     // Validators
     QValidator* pollingIntervalValidator = new QIntValidator( PollIntervalMin, PollIntervalMax );
@@ -89,7 +90,7 @@ OptionsDialog::OptionsDialog( QWidget* parent )
 
     connect( restoreShortcutsDefaults, &QPushButton::clicked, this, [ this ]() {
         auto ret = QMessageBox::question(
-            this, "Restore Default Shortcuts", "Do you want to restore default shortcuts?",
+            this, tr( "Restore Default Shortcuts" ), tr( "Do you want to restore default shortcuts?" ),
             QMessageBox::Yes | QMessageBox::Cancel, QMessageBox::Cancel );
         if ( ret == QMessageBox::Yes )
             buildShortcutsTable( true );
@@ -483,6 +484,13 @@ int OptionsDialog::updateTranslate()
     return mw->installLanguage( languageComboBox->currentData().toString() );
 }
 
+void OptionsDialog::retranslateDynamicUi()
+{
+    buttonBox->button( QDialogButtonBox::Ok )->setText( tr( "OK" ) );
+    buttonBox->button( QDialogButtonBox::Cancel )->setText( tr( "Cancel" ) );
+    buttonBox->button( QDialogButtonBox::Apply )->setText( tr( "Apply" ) );
+}
+
 void OptionsDialog::updateConfigFromDialog()
 {
     bool restartAppMessage = false;
@@ -575,6 +583,7 @@ void OptionsDialog::updateConfigFromDialog()
     updateTranslate();
     config.setLanguage( languageComboBox->currentData().toString() );
     retranslateUi( this );
+    retranslateDynamicUi();
 
     config.save();
 
