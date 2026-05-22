@@ -140,6 +140,7 @@ class MainWindow : public QMainWindow {
     void toggleOverviewVisibility( bool isVisible );
     void toggleMainLineNumbersVisibility( bool isVisible );
     void toggleFilteredLineNumbersVisibility( bool isVisible );
+    void toggleFixedPrefixVisibility( bool isVisible );
 
     // Change the follow mode checkbox and send the followSet signal down
     void changeFollowMode( bool follow );
@@ -263,6 +264,7 @@ class MainWindow : public QMainWindow {
     QAction* overviewVisibleAction;
     QAction* lineNumbersVisibleInMainAction;
     QAction* lineNumbersVisibleInFilteredAction;
+    QAction* fixedPrefixVisibleAction;
     QAction* followAction;
     QAction* textWrapAction;
     QAction* reloadAction;

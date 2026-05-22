@@ -364,6 +364,7 @@ void MainWindow::reTranslateUI()
     lineNumbersVisibleInMainAction->setText( transAction( action::lineNumbersVisibleInMainText ) );
     lineNumbersVisibleInFilteredAction->setText(
         transAction( action::lineNumbersVisibleInFilteredText ) );
+    fixedPrefixVisibleAction->setText( transAction( action::fixedPrefixVisibleText ) );
 
     followAction->setText( transAction( action::followText ) );
     textWrapAction->setText( transAction( action::wrapText ) );
@@ -564,6 +565,12 @@ void MainWindow::createActions()
     lineNumbersVisibleInFilteredAction->setChecked( config.filteredLineNumbersVisible() );
     connect( lineNumbersVisibleInFilteredAction, &QAction::toggled, this,
              &MainWindow::toggleFilteredLineNumbersVisibility );
+
+    fixedPrefixVisibleAction = new QAction( tr( action::fixedPrefixVisibleText ), this );
+    fixedPrefixVisibleAction->setCheckable( true );
+    fixedPrefixVisibleAction->setChecked( config.fixedPrefixVisible() );
+    connect( fixedPrefixVisibleAction, &QAction::toggled, this,
+             &MainWindow::toggleFixedPrefixVisibility );
 
     followAction = new QAction( tr( action::followText ), this );
     followAction->setCheckable( true );
@@ -791,6 +798,7 @@ void MainWindow::createMenus()
     viewMenu->addSeparator();
     viewMenu->addAction( lineNumbersVisibleInMainAction );
     viewMenu->addAction( lineNumbersVisibleInFilteredAction );
+    viewMenu->addAction( fixedPrefixVisibleAction );
     viewMenu->addSeparator();
     viewMenu->addAction( textWrapAction );
     viewMenu->addSeparator();
@@ -1313,6 +1321,15 @@ void MainWindow::toggleFilteredLineNumbersVisibility( bool isVisible )
     auto& config = Configuration::get();
 
     config.setFilteredLineNumbersVisible( isVisible );
+    config.save();
+    Q_EMIT optionsChanged();
+}
+
+void MainWindow::toggleFixedPrefixVisibility( bool isVisible )
+{
+    auto& config = Configuration::get();
+
+    config.setFixedPrefixVisible( isVisible );
     config.save();
     Q_EMIT optionsChanged();
 }
@@ -1907,6 +1924,7 @@ void MainWindow::updateMenuBarFromDocument( const CrawlerWidget* crawler )
 
     followAction->setChecked( crawler->isFollowEnabled() );
     textWrapAction->setChecked( crawler->isTextWrapEnabled() );
+    fixedPrefixVisibleAction->setChecked( Configuration::get().fixedPrefixVisible() );
 }
 
 // Update the top info line from the session

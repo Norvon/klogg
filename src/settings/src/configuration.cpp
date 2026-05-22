@@ -276,6 +276,9 @@ void Configuration::retrieveFromStorage( QSettings& settings )
                                         .value( "view.lineNumbersVisibleInFiltered",
                                                 DefaultConfiguration.lineNumbersVisibleInFiltered_ )
                                         .toBool();
+    fixedPrefixVisible_
+        = settings.value( "view.fixedPrefixVisible", DefaultConfiguration.fixedPrefixVisible_ )
+              .toBool();
     minimizeToTray_
         = settings.value( "view.minimizeToTray", DefaultConfiguration.minimizeToTray_ ).toBool();
 
@@ -423,6 +426,7 @@ void Configuration::saveToStorage( QSettings& settings ) const
     settings.setValue( "view.overviewVisible", overviewVisible_ );
     settings.setValue( "view.lineNumbersVisibleInMain", lineNumbersVisibleInMain_ );
     settings.setValue( "view.lineNumbersVisibleInFiltered", lineNumbersVisibleInFiltered_ );
+    settings.setValue( "view.fixedPrefixVisible", fixedPrefixVisible_ );
     settings.setValue( "view.minimizeToTray", minimizeToTray_ );
     settings.setValue( "view.style", style_ );
     settings.setValue( "view.language", language_ );

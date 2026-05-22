@@ -64,6 +64,7 @@ const char* action::overviewVisibleText = QT_TR_NOOP( "Matches &overview" );
 const char* action::lineNumbersVisibleInMainText = QT_TR_NOOP( "Line &numbers in main view" );
 const char* action::lineNumbersVisibleInFilteredText
     = QT_TR_NOOP( "Line &numbers in filtered view" );
+const char* action::fixedPrefixVisibleText = QT_TR_NOOP( "Line &prefix column" );
 const char* action::followText = QT_TR_NOOP( "&Follow File" );
 const char* action::wrapText = QT_TR_NOOP( "&Wrap text" );
 const char* action::reloadText = QT_TR_NOOP( "&Reload" );

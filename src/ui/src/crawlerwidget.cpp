@@ -630,6 +630,7 @@ void CrawlerWidget::applyConfiguration()
     }
 
     logMainView_->setLineNumbersVisible( config.mainLineNumbersVisible() );
+    logMainView_->setFixedPrefixVisible( config.fixedPrefixVisible() );
 
     const auto isFollowModeAllowed = config.anyFileWatchEnabled();
     logMainView_->allowFollowMode( isFollowModeAllowed );
@@ -640,6 +641,7 @@ void CrawlerWidget::applyConfiguration()
     for ( auto i = 0; i < tabbedFilteredView_->count(); ++i ) {
         auto fv = qobject_cast<FilteredView*>( tabbedFilteredView_->widget( i ) );
         fv->setLineNumbersVisible( config.filteredLineNumbersVisible() );
+        fv->setFixedPrefixVisible( config.fixedPrefixVisible() );
         // 主视图跟随文件时，筛选结果仍然必须能自由滚动。
         fv->allowFollowMode( false );
         fv->updateFont( font );

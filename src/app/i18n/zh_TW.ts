@@ -1832,6 +1832,11 @@
     </message>
     <message>
         <location filename="../../ui/src/mainwindowtext.cpp" line="67"/>
+        <source>Line &amp;prefix column</source>
+        <translation>行前綴欄(&amp;p)</translation>
+    </message>
+    <message>
+        <location filename="../../ui/src/mainwindowtext.cpp" line="67"/>
         <source>&amp;Follow File</source>
         <translation>跟隨檔案變化(&amp;F)</translation>
     </message>

@@ -1832,6 +1832,11 @@
     </message>
     <message>
         <location filename="../../ui/src/mainwindowtext.cpp" line="67"/>
+        <source>Line &amp;prefix column</source>
+        <translation>Line &amp;prefix column</translation>
+    </message>
+    <message>
+        <location filename="../../ui/src/mainwindowtext.cpp" line="67"/>
         <source>&amp;Follow File</source>
         <translation>&amp;Follow File</translation>
     </message>

@@ -61,6 +61,7 @@ extern const char* openUrlStatusTip;
 extern const char* overviewVisibleText;
 extern const char* lineNumbersVisibleInMainText;
 extern const char* lineNumbersVisibleInFilteredText;
+extern const char* fixedPrefixVisibleText;
 extern const char* followText;
 extern const char* reloadText;
 extern const char* wrapText;

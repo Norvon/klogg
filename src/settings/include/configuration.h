@@ -281,6 +281,10 @@ class Configuration final : public Persistable<Configuration> {
     {
         return minimizeToTray_;
     }
+    bool fixedPrefixVisible() const
+    {
+        return fixedPrefixVisible_;
+    }
     QString style() const
     {
         return style_;
@@ -292,6 +296,10 @@ class Configuration final : public Persistable<Configuration> {
     void setFilteredLineNumbersVisible( bool lineNumbersVisible )
     {
         lineNumbersVisibleInFiltered_ = lineNumbersVisible;
+    }
+    void setFixedPrefixVisible( bool visible )
+    {
+        fixedPrefixVisible_ = visible;
     }
     void setMinimizeToTray( bool minimizeToTray )
     {
@@ -561,6 +569,7 @@ class Configuration final : public Persistable<Configuration> {
     bool overviewVisible_ = true;
     bool lineNumbersVisibleInMain_ = false;
     bool lineNumbersVisibleInFiltered_ = true;
+    bool fixedPrefixVisible_ = false;
     bool minimizeToTray_ = false;
     QString style_;
 
