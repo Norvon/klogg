@@ -63,6 +63,8 @@ class LogMainView : public AbstractLogView
     // Implements the virtual function
     LogData::LineType lineType( LineNumber lineNumber ) const override;
 
+    bool inheritFixedPrefixFromPreviousLine() const override;
+
     void doRegisterShortcuts() override;
 
   private:

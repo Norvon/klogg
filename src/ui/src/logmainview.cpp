@@ -79,6 +79,11 @@ AbstractLogData::LineType LogMainView::lineType( LineNumber lineNumber ) const
     return AbstractLogData::LineTypeFlags::Plain;
 }
 
+bool LogMainView::inheritFixedPrefixFromPreviousLine() const
+{
+    return true;
+}
+
 void LogMainView::doRegisterShortcuts()
 {
     LOG_INFO << "Registering shortcuts for main view";

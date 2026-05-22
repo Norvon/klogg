@@ -1187,6 +1187,11 @@ LineNumber AbstractLogView::maxDisplayLineNumber() const
     return LineNumber( logData_->getNbLine().get() );
 }
 
+bool AbstractLogView::inheritFixedPrefixFromPreviousLine() const
+{
+    return false;
+}
+
 void AbstractLogView::setOverview( Overview* overview, OverviewWidget* overviewWidget )
 {
     overview_ = overview;
@@ -2256,18 +2261,68 @@ void AbstractLogView::drawTextArea( QPaintDevice* paintDevice )
     static constexpr int ContentMarginWidth = 1;
     static constexpr int LineNumberPadding = 3;
     static constexpr int FixedPrefixPadding = 3;
+    static constexpr LinesCount::UnderlyingType FixedPrefixLookbackLines = 5000;
+    static constexpr LinesCount::UnderlyingType FixedPrefixLookbackChunkLines = 256;
     const int fixedPrefixColumns = std::clamp( fixedPrefixColumns_, 1, 200 );
     const bool drawFixedPrefix = fixedPrefixVisible_ && !useTextWrap_
-                                 && firstCol_.get() >= fixedPrefixColumns;
-    const auto makeFixedPrefixText = [ this, fixedPrefixColumns ]( const QString& expandedLine ) {
-        if ( fixedPrefixPattern_.isEmpty() || !fixedPrefixRegex_.isValid() ) {
-            return QString{};
+                                 && firstCol_ > 0_lcol;
+    const bool canExtractFixedPrefix = !fixedPrefixPattern_.isEmpty()
+                                       && fixedPrefixRegex_.isValid()
+                                       && fixedPrefixRegex_.captureCount() >= 1;
+    const auto extractFixedPrefixText
+        = [ this, fixedPrefixColumns,
+            canExtractFixedPrefix ]( const QString& expandedLine ) -> std::optional<QString> {
+        if ( !canExtractFixedPrefix ) {
+            return {};
         }
 
         const auto match = fixedPrefixRegex_.match( expandedLine );
-        return ( match.hasMatch() && match.lastCapturedIndex() >= 1 )
-                   ? match.captured( 1 ).left( fixedPrefixColumns )
-                   : QString{};
+        if ( match.hasMatch() && match.lastCapturedIndex() >= 1 ) {
+            return match.captured( 1 ).left( fixedPrefixColumns );
+        }
+
+        return {};
+    };
+    const bool inheritFixedPrefix
+        = drawFixedPrefix && canExtractFixedPrefix && inheritFixedPrefixFromPreviousLine();
+    const auto findPreviousFixedPrefix = [ this, extractFixedPrefixText ]() {
+        auto remainingLines = std::min( firstLine_.get(), FixedPrefixLookbackLines );
+        auto searchEndLine = firstLine_;
+
+        while ( remainingLines > 0 ) {
+            const auto linesInChunk
+                = std::min( remainingLines, FixedPrefixLookbackChunkLines );
+            const auto chunkStartLine = searchEndLine - LinesCount{ linesInChunk };
+            const auto previousLines
+                = logData_->getLines( chunkStartLine, LinesCount{ linesInChunk } );
+
+            for ( auto lineIndex = previousLines.size(); lineIndex > 0; --lineIndex ) {
+                auto expandedLine = untabify( QString{ previousLines[ lineIndex - 1 ] } );
+                const auto prefixText = extractFixedPrefixText( expandedLine );
+                if ( prefixText.has_value() ) {
+                    return *prefixText;
+                }
+            }
+
+            remainingLines -= linesInChunk;
+            searchEndLine = chunkStartLine;
+        }
+
+        return QString{};
+    };
+    const auto makeFixedPrefixText = [ &extractFixedPrefixText, &findPreviousFixedPrefix,
+                                       this, inheritFixedPrefix ]( const QString& expandedLine,
+                                                                   LineNumber lineNumber ) {
+        const auto prefixText = extractFixedPrefixText( expandedLine );
+        if ( prefixText.has_value() ) {
+            return *prefixText;
+        }
+
+        if ( inheritFixedPrefix && lineNumber == firstLine_ ) {
+            return findPreviousFixedPrefix();
+        }
+
+        return QString{};
     };
 
     // First check the lines to be drawn are within range (might not be the case if
@@ -2514,7 +2569,7 @@ void AbstractLogView::drawTextArea( QPaintDevice* paintDevice )
                                fixedPrefixAreaWidth - SeparatorWidth, finalLineHeight,
                                prefixBackColor );
 
-            const auto prefixText = makeFixedPrefixText( expandedLine );
+            const auto prefixText = makeFixedPrefixText( expandedLine, lineNumber );
             painter->save();
             painter->setClipRect( fixedPrefixAreaStartX + FixedPrefixPadding, yPos,
                                   fixedPrefixAreaWidth - 2 * FixedPrefixPadding - SeparatorWidth,

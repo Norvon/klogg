@@ -182,6 +182,7 @@ class AbstractLogView : public QAbstractScrollArea, public SearchableWidgetInter
     virtual LineNumber displayLineNumber( LineNumber lineNumber ) const;
     virtual LineNumber lineIndex( LineNumber lineNumber ) const;
     virtual LineNumber maxDisplayLineNumber() const;
+    virtual bool inheritFixedPrefixFromPreviousLine() const;
 
     // Get the overview associated with this view, or NULL if there is none
     Overview* getOverview() const
