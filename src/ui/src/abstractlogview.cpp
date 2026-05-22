@@ -2238,6 +2238,8 @@ void AbstractLogView::drawTextArea( QPaintDevice* paintDevice )
     static constexpr int LineNumberPadding = 3;
     static constexpr int FixedPrefixColumns = 20;
     static constexpr int FixedPrefixPadding = 3;
+    const bool drawFixedPrefix = fixedPrefixVisible_ && !useTextWrap_
+                                 && firstCol_.get() >= FixedPrefixColumns;
 
     // First check the lines to be drawn are within range (might not be the case if
     // the file has just changed)
@@ -2298,7 +2300,7 @@ void AbstractLogView::drawTextArea( QPaintDevice* paintDevice )
 
     int fixedPrefixAreaStartX = contentStartPosX;
     int fixedPrefixAreaWidth = 0;
-    if ( fixedPrefixVisible_ ) {
+    if ( drawFixedPrefix ) {
         fixedPrefixAreaWidth = 2 * FixedPrefixPadding + charWidth_ * FixedPrefixColumns;
         painter->fillRect( contentStartPosX - SeparatorWidth, 0,
                            fixedPrefixAreaWidth + SeparatorWidth, paintDeviceHeight,
@@ -2474,7 +2476,7 @@ void AbstractLogView::drawTextArea( QPaintDevice* paintDevice )
             = fontHeight * static_cast<int>( wrappedLineView.wrappedLinesCount() );
         // LOG_INFO << "Draw line " << lineNumber << ": " << expandedLine;
 
-        if ( fixedPrefixVisible_ ) {
+        if ( drawFixedPrefix ) {
             const auto prefixBackColor
                 = ( selection_.isLineSelected( lineNumber ) && !selection_.isSingleLine() )
                       ? backColor

@@ -1832,8 +1832,8 @@
     </message>
     <message>
         <location filename="../../ui/src/mainwindowtext.cpp" line="67"/>
-        <source>Line &amp;prefix column</source>
-        <translation>Line &amp;prefix column</translation>
+        <source>Auto line &amp;prefix column</source>
+        <translation>Auto line &amp;prefix column</translation>
     </message>
     <message>
         <location filename="../../ui/src/mainwindowtext.cpp" line="67"/>
