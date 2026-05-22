@@ -600,7 +600,7 @@ class Configuration final : public Persistable<Configuration> {
 
     QColor qfBackColor_ = Qt::yellow;
     QColor mainSearchBackColor_ = Qt::lightGray;
-    bool enableMainSearchHighlight_ = false;
+    bool enableMainSearchHighlight_ = true;
     bool enableMainSearchHighlightVariance_ = false;
 
     bool allowFollowOnScroll_ = true;

@@ -88,7 +88,6 @@ class OptionsDialog : public QDialog, public Ui::OptionsDialog {
     // Called when a ok/cancel/apply button is clicked.
     void onButtonBoxClicked( QAbstractButton* button );
 
-    void changeMainColor();
     void changeQfColor();
 
     void checkShortcutsOnDuplicate() const;
@@ -118,7 +117,6 @@ class OptionsDialog : public QDialog, public Ui::OptionsDialog {
 
     void updateDialogFromConfig();
 
-    QColor mainSearchColor_;
     QColor qfSearchColor_;
 };
 

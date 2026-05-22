@@ -2306,21 +2306,19 @@ void AbstractLogView::drawTextArea( QPaintDevice* paintDevice )
     const auto logLines = logData_->getLines( firstLine_, nbLines );
 
     const auto highlightPatternMatches = Configuration::get().mainSearchHighlight();
-    const auto variateHighlightPatternMatches = Configuration::get().variateMainSearchHighlight();
 
     std::optional<Highlighter> patternHighlight;
     if ( highlightPatternMatches && !searchPattern_.isBoolean && !searchPattern_.isExclude
          && !searchPattern_.pattern.isEmpty() ) {
-        const auto mainSearchBackColor = Configuration::get().mainSearchBackColor();
         patternHighlight = Highlighter{};
         patternHighlight->setHighlightOnlyMatch( true );
-        patternHighlight->setVariateColors( variateHighlightPatternMatches );
+        patternHighlight->setVariateColors( false );
         patternHighlight->setPattern( searchPattern_.pattern );
         patternHighlight->setIgnoreCase( !searchPattern_.isCaseSensitive );
         patternHighlight->setUseRegex( !searchPattern_.isPlainText );
 
-        patternHighlight->setBackColor( mainSearchBackColor );
-        patternHighlight->setForeColor( Qt::black );
+        patternHighlight->setBackColor( palette.color( QPalette::Highlight ) );
+        patternHighlight->setForeColor( palette.color( QPalette::HighlightedText ) );
     }
 
     klogg::vector<Highlighter> additionalHighlighters;

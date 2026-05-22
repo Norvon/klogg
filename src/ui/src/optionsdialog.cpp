@@ -85,7 +85,8 @@ OptionsDialog::OptionsDialog( QWidget* parent )
     connect( extractArchivesCheckBox, &QCheckBox::toggled,
              [ this ]( auto ) { this->setupArchives(); } );
 
-    connect( mainSearchColorButton, &QPushButton::clicked, this, &OptionsDialog::changeMainColor );
+    mainSearchColorButton->hide();
+    variateHighlightCheckBox->hide();
     connect( quickFindColorButton, &QPushButton::clicked, this, &OptionsDialog::changeQfColor );
 
     connect( restoreShortcutsDefaults, &QPushButton::clicked, this, [ this ]() {
@@ -325,8 +326,6 @@ void OptionsDialog::updateDialogFromConfig()
 
     // Regexp types
     mainSearchBox->setCurrentIndex( getRegexpTypeIndex( config.mainRegexpType() ) );
-    mainSearchColor_ = config.mainSearchBackColor();
-    HighlighterEdit::updateIcon( mainSearchColorButton, mainSearchColor_ );
     quickFindSearchBox->setCurrentIndex( getRegexpTypeIndex( config.quickfindRegexpType() ) );
     qfSearchColor_ = config.qfBackColor();
     HighlighterEdit::updateIcon( quickFindColorButton, qfSearchColor_ );
@@ -334,7 +333,6 @@ void OptionsDialog::updateDialogFromConfig()
     autoRunSearchOnAddCheckBox->setChecked( config.autoRunSearchOnPatternChange() );
 
     highlightMainSearchCheckBox->setChecked( config.mainSearchHighlight() );
-    variateHighlightCheckBox->setChecked( config.variateMainSearchHighlight() );
     incrementalCheckBox->setChecked( config.isQuickfindIncremental() );
     caseSensitiveCheckBox->setChecked( !config.isSearchIgnoreCaseDefault() );
     logicalCombiningCheckBox->setChecked( config.isSearchLogicalCombiningDefault() );
@@ -406,15 +404,6 @@ void OptionsDialog::updateFontSize( const QString& fontFamily )
     int i = fontSizeBox->findText( oldFontSize );
     if ( i != -1 )
         fontSizeBox->setCurrentIndex( i );
-}
-
-void OptionsDialog::changeMainColor()
-{
-    QColor newColor;
-    if ( HighlighterEdit::showColorPicker( mainSearchColor_, newColor ) ) {
-        mainSearchColor_ = newColor;
-        HighlighterEdit::updateIcon( mainSearchColorButton, mainSearchColor_ );
-    }
 }
 
 void OptionsDialog::changeQfColor()
@@ -505,9 +494,7 @@ void OptionsDialog::updateConfigFromDialog()
     config.setScaleFactorRounding( scaleRoundingComboBox->currentIndex() + 1 );
 
     config.setMainRegexpType( getRegexpTypeFromIndex( mainSearchBox->currentIndex() ) );
-    config.setMainSearchBackColor( mainSearchColor_ );
     config.setEnableMainSearchHighlight( highlightMainSearchCheckBox->isChecked() );
-    config.setVariateMainSearchHighlight( variateHighlightCheckBox->isChecked() );
     config.setSearchIgnoreCaseDefault( !caseSensitiveCheckBox->isChecked() );
     config.setSearchAutoRefreshDefault( autoRefreshCheckBox->isChecked() );
     config.setSearchLogicalCombiningDefault( logicalCombiningCheckBox->isChecked() );

@@ -134,6 +134,11 @@ void Configuration::retrieveFromStorage( QSettings& settings )
         = settings
               .value( "regexpType.mainHighlight", DefaultConfiguration.enableMainSearchHighlight_ )
               .toBool();
+    if ( !settings.value( "regexpType.selectionColorHighlightMigrated", false ).toBool() ) {
+        enableMainSearchHighlight_ = true;
+        settings.setValue( "regexpType.mainHighlight", enableMainSearchHighlight_ );
+        settings.setValue( "regexpType.selectionColorHighlightMigrated", true );
+    }
 
     enableMainSearchHighlightVariance_
         = settings
