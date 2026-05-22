@@ -1882,8 +1882,10 @@ void AbstractLogView::displayLine( LineNumber line )
 
     const auto portion = selection_.getPortionForLine( line );
     if ( portion.isValid() ) {
-        horizontalScrollBar()->setValue( type_safe::narrow_cast<int>(
-            portion.endColumn().get() - getNbVisibleCols().get() + 1 ) );
+        const auto visibleColumns = getNbVisibleCols().get();
+        const auto matchCenterColumn = portion.startColumn().get() + portion.size().get() / 2;
+        const auto targetFirstColumn = std::max( 0LL, matchCenterColumn - visibleColumns / 2 );
+        horizontalScrollBar()->setValue( type_safe::narrow_cast<int>( targetFirstColumn ) );
     }
 }
 
