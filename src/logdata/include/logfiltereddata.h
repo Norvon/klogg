@@ -42,6 +42,7 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <tuple>
 #include <unordered_map>
 
@@ -96,6 +97,8 @@ class LogFilteredData : public AbstractLogData {
     // Returns the line 'index' in filterd log data that matches
     // given original line number
     LineNumber getLineIndexNumber( LineNumber lineNumber ) const;
+    std::optional<std::pair<LineColumn, LineLength>> getMatchingLinePortion(
+        LineNumber index ) const;
 
     // Returns the number of lines in the source log data
     LinesCount getNbTotalLines() const;

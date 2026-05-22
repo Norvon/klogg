@@ -1704,9 +1704,17 @@ void AbstractLogView::selectPortionAndDisplayLine( LineNumber line, LinesCount n
                                                    LineColumn startCol, LineLength nSymbols )
 {
     disableFollow();
-    selection_.selectLine( line );
-    selectionStartPos_ = FilePosition{ line, startCol };
-    selectionCurrentEndPos_ = FilePosition{ line, startCol + nSymbols };
+    if ( nSymbols > 0_length ) {
+        const auto endCol = startCol + nSymbols - 1_length;
+        selection_.selectPortion( line, startCol, endCol );
+        selectionStartPos_ = FilePosition{ line, startCol };
+        selectionCurrentEndPos_ = FilePosition{ line, endCol };
+    }
+    else {
+        selection_.selectLine( line );
+        selectionStartPos_ = FilePosition{ line, startCol };
+        selectionCurrentEndPos_ = selectionStartPos_;
+    }
     displayLine( line );
     Q_EMIT newSelection( line, nLines, startCol, nSymbols );
 }

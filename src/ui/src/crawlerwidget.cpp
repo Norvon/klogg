@@ -548,6 +548,14 @@ void CrawlerWidget::jumpToMatchingLine( LineNumber filteredLineNb, LinesCount nL
                                         LineColumn startCol, LineLength nSymbols )
 {
     const auto mainViewLine = logFilteredData_->getMatchingLineNumber( filteredLineNb );
+    if ( nSymbols == 0_length ) {
+        const auto matchPortion = logFilteredData_->getMatchingLinePortion( filteredLineNb );
+        if ( matchPortion.has_value() ) {
+            startCol = matchPortion->first;
+            nSymbols = matchPortion->second;
+        }
+    }
+
     logMainView_->selectPortionAndDisplayLine( mainViewLine, nLines, startCol,
                                                nSymbols ); // FIXME: should be done with a signal.
 }

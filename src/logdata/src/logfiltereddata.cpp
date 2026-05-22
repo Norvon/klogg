@@ -43,7 +43,9 @@
 #include "log.h"
 
 #include <KDSignalThrottler.h>
+#include <QRegularExpression>
 #include <QString>
+#include <QStringView>
 #include <QTimer>
 
 #include <cassert>
@@ -169,6 +171,58 @@ LineNumber LogFilteredData::getMatchingLineNumber( LineNumber matchNum ) const
 LineNumber LogFilteredData::getLineIndexNumber( LineNumber lineNumber ) const
 {
     return findFilteredLine( lineNumber );
+}
+
+std::optional<std::pair<LineColumn, LineLength>> LogFilteredData::getMatchingLinePortion(
+    LineNumber matchNum ) const
+{
+    if ( currentRegExp_.pattern.isEmpty() || currentRegExp_.isBoolean || currentRegExp_.isExclude ) {
+        return {};
+    }
+
+    const auto lineNumber = findLogDataLine( matchNum );
+    if ( !isLineMatched( lineNumber ) ) {
+        return {};
+    }
+
+    auto pattern = currentRegExp_.pattern;
+    if ( currentRegExp_.isPlainText ) {
+        pattern = QRegularExpression::escape( pattern );
+    }
+
+    QRegularExpression::PatternOptions options = QRegularExpression::UseUnicodePropertiesOption;
+    if ( !currentRegExp_.isCaseSensitive ) {
+        options |= QRegularExpression::CaseInsensitiveOption;
+    }
+
+    const QRegularExpression regexp( pattern, options );
+    if ( !regexp.isValid() ) {
+        return {};
+    }
+
+    const auto line = sourceLogData_->getLineString( lineNumber );
+    const auto match = regexp.match( line );
+    if ( !match.hasMatch() || match.capturedStart( 0 ) < 0 || match.capturedLength( 0 ) <= 0 ) {
+        return {};
+    }
+
+    const auto prefix = QStringView{ line }.left( match.capturedStart( 0 ) );
+    const auto matchText
+        = QStringView{ line }.mid( match.capturedStart( 0 ), match.capturedLength( 0 ) );
+    const auto expandedStart = untabify( prefix.toString() ).size();
+    const auto expandedLength
+        = untabify( matchText.toString(),
+                    LineColumn{ type_safe::narrow_cast<LineColumn::UnderlyingType>(
+                        expandedStart ) } )
+              .size();
+
+    if ( expandedLength <= 0 ) {
+        return {};
+    }
+
+    return std::make_pair(
+        LineColumn{ type_safe::narrow_cast<LineColumn::UnderlyingType>( expandedStart ) },
+        LineLength{ type_safe::narrow_cast<LineLength::UnderlyingType>( expandedLength ) } );
 }
 
 // Scan the list for the 'lineNumber' passed
