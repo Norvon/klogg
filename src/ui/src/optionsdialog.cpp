@@ -658,7 +658,8 @@ void KeySequencePresenter::showEditor()
     connect( dialogButtons, &QDialogButtonBox::rejected, &keyEditDialog, &QDialog::reject );
 
     if ( keyEditDialog.exec() == QDialog::Accepted ) {
-        keySequenceLabel_->setText( editor->keySequence().toString() );
+        keySequenceLabel_->setText(
+            editor->keySequence().toString( QKeySequence::NativeText ) );
         Q_EMIT edited(); // NOTE: it's important to emit this signal only after changing
                          // \keySequenceLabel_'s text
     }
