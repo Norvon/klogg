@@ -58,6 +58,7 @@
 #include <QKeySequence>
 #include <QLineEdit>
 #include <QListView>
+#include <QScreen>
 #include <QShortcut>
 #include <QStandardItemModel>
 #include <QStringListModel>
@@ -81,6 +82,49 @@ static constexpr char AnsiColorSequenceRegex[] = "\\x1B\\[([0-9]{1,4}((;|:)[0-9]
 
 // Palette for error signaling (yellow background)
 const QPalette CrawlerWidget::ErrorPalette( Qt::darkYellow );
+
+class ScreenBoundComboBox : public QComboBox {
+  public:
+    using QComboBox::QComboBox;
+
+    void showPopup() override
+    {
+        QComboBox::showPopup();
+
+        auto* popup = view() ? view()->window() : nullptr;
+        auto* screen = activeScreen( this );
+        if ( !popup || !screen ) {
+            return;
+        }
+
+        QRect popupGeometry = popup->geometry();
+        const QRect screenGeometry = screen->availableGeometry();
+
+        if ( popupGeometry.width() > screenGeometry.width() ) {
+            popupGeometry.setWidth( screenGeometry.width() );
+        }
+        if ( popupGeometry.height() > screenGeometry.height() ) {
+            popupGeometry.setHeight( screenGeometry.height() );
+        }
+
+        if ( popupGeometry.right() > screenGeometry.right() ) {
+            popupGeometry.moveRight( screenGeometry.right() );
+        }
+        if ( popupGeometry.left() < screenGeometry.left() ) {
+            popupGeometry.moveLeft( screenGeometry.left() );
+        }
+        if ( popupGeometry.bottom() > screenGeometry.bottom() ) {
+            popupGeometry.moveBottom( screenGeometry.bottom() );
+        }
+        if ( popupGeometry.top() < screenGeometry.top() ) {
+            popupGeometry.moveTop( screenGeometry.top() );
+        }
+
+        if ( popupGeometry != popup->geometry() ) {
+            popup->setGeometry( popupGeometry );
+        }
+    }
+};
 
 // Implementation of the view context for the CrawlerWidget
 class CrawlerWidgetContext : public ViewContextInterface {
@@ -1005,7 +1049,7 @@ void CrawlerWidget::setup()
     visibilityView->setMovement( QListView::Static );
     // visibilityView->setMinimumWidth( 170 ); // Only needed with custom style-sheet
 
-    visibilityBox_ = new QComboBox();
+    visibilityBox_ = new ScreenBoundComboBox();
     visibilityBox_->setModel( visibilityModel_ );
     visibilityBox_->setView( visibilityView );
 
