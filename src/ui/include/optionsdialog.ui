@@ -478,7 +478,7 @@
              </sizepolicy>
             </property>
             <property name="toolTip">
-             <string>Maximum characters shown in the automatic line prefix column.</string>
+             <string>Maximum characters shown in the fixed prefix column.</string>
             </property>
             <property name="suffix">
              <string> chars</string>

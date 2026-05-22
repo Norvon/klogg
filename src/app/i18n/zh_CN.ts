@@ -920,8 +920,8 @@
     </message>
     <message>
         <location filename="../../ui/include/optionsdialog.ui" line="481"/>
-        <source>Maximum characters shown in the automatic line prefix column.</source>
-        <translation>自动行前缀列最多显示的字符数。</translation>
+        <source>Maximum characters shown in the fixed prefix column.</source>
+        <translation>固定前缀列最多显示的字符数。</translation>
     </message>
     <message>
         <location filename="../../ui/include/optionsdialog.ui" line="484"/>
@@ -2009,8 +2009,8 @@
     </message>
     <message>
         <location filename="../../ui/src/mainwindowtext.cpp" line="67"/>
-        <source>Auto line &amp;prefix column</source>
-        <translation>自动行前缀列(&amp;p)</translation>
+        <source>Fixed line &amp;prefix column</source>
+        <translation>固定前缀列(&amp;p)</translation>
     </message>
     <message>
         <location filename="../../ui/src/mainwindowtext.cpp" line="67"/>
