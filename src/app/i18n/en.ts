@@ -865,6 +865,21 @@
         <translation>Hide ANSI Colors (search performance will be reduced)</translation>
     </message>
     <message>
+        <location filename="../../ui/include/optionsdialog.ui" line="446"/>
+        <source>Line prefix regex:</source>
+        <translation>Line prefix regex:</translation>
+    </message>
+    <message>
+        <location filename="../../ui/include/optionsdialog.ui" line="452"/>
+        <source>Shows the first capture group. Leave empty to use the first 20 characters.</source>
+        <translation>Shows the first capture group. Leave empty to use the first 20 characters.</translation>
+    </message>
+    <message>
+        <location filename="../../ui/include/optionsdialog.ui" line="455"/>
+        <source>Example: ^(\S+)</source>
+        <translation>Example: ^(\S+)</translation>
+    </message>
+    <message>
         <location filename="../../ui/include/optionsdialog.ui" line="431"/>
         <source>File</source>
         <translation>File</translation>

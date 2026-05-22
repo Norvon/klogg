@@ -899,6 +899,21 @@
         <translation>隐藏ANSI颜色（搜索性能会降低）</translation>
     </message>
     <message>
+        <location filename="../../ui/include/optionsdialog.ui" line="446"/>
+        <source>Line prefix regex:</source>
+        <translation>行前缀正则:</translation>
+    </message>
+    <message>
+        <location filename="../../ui/include/optionsdialog.ui" line="452"/>
+        <source>Shows the first capture group. Leave empty to use the first 20 characters.</source>
+        <translation>显示第一个捕获组。留空时使用每行前20个字符。</translation>
+    </message>
+    <message>
+        <location filename="../../ui/include/optionsdialog.ui" line="455"/>
+        <source>Example: ^(\S+)</source>
+        <translation>示例: ^(\S+)</translation>
+    </message>
+    <message>
         <location filename="../../ui/include/optionsdialog.ui" line="462"/>
         <source>File</source>
         <translation>文件</translation>

@@ -53,6 +53,8 @@
 #include <QColor>
 #include <QEvent>
 #include <QFontMetrics>
+#include <QRegularExpression>
+#include <QString>
 
 #ifdef GLOGG_PERF_MEASURE_FPS
 #include "perfcounter.h"
@@ -331,6 +333,8 @@ class AbstractLogView : public QAbstractScrollArea, public SearchableWidgetInter
     bool lineNumbersVisible_ = false;
     // Enables the fixed prefix column; it appears after horizontal scroll hides the prefix.
     bool fixedPrefixVisible_ = false;
+    QString fixedPrefixPattern_;
+    QRegularExpression fixedPrefixRegex_;
 
     // Pointer to the CrawlerWidget's data set
     const AbstractLogData* logData_;

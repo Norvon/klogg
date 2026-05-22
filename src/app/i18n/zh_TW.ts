@@ -865,6 +865,21 @@
         <translation>隱藏 ANSI 顏色（搜尋效能會降低）</translation>
     </message>
     <message>
+        <location filename="../../ui/include/optionsdialog.ui" line="446"/>
+        <source>Line prefix regex:</source>
+        <translation>行前綴正則:</translation>
+    </message>
+    <message>
+        <location filename="../../ui/include/optionsdialog.ui" line="452"/>
+        <source>Shows the first capture group. Leave empty to use the first 20 characters.</source>
+        <translation>顯示第一個捕獲群組。留空時使用每行前 20 個字元。</translation>
+    </message>
+    <message>
+        <location filename="../../ui/include/optionsdialog.ui" line="455"/>
+        <source>Example: ^(\S+)</source>
+        <translation>範例: ^(\S+)</translation>
+    </message>
+    <message>
         <location filename="../../ui/include/optionsdialog.ui" line="431"/>
         <source>File</source>
         <translation>檔案</translation>

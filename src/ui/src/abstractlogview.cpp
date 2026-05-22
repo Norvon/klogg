@@ -406,8 +406,12 @@ AbstractLogView::AbstractLogView( const AbstractLogData* newLogData,
 {
     setViewport( nullptr );
 
-    useTextWrap_ = Configuration::get().useTextWrap();
-    fixedPrefixVisible_ = Configuration::get().fixedPrefixVisible();
+    const auto& config = Configuration::get();
+    useTextWrap_ = config.useTextWrap();
+    fixedPrefixVisible_ = config.fixedPrefixVisible();
+    fixedPrefixPattern_ = config.fixedPrefixPattern();
+    fixedPrefixRegex_ = QRegularExpression( fixedPrefixPattern_,
+                                            QRegularExpression::UseUnicodePropertiesOption );
 
     // Hovering
     setMouseTracking( true );
@@ -1724,6 +1728,9 @@ void AbstractLogView::setLineNumbersVisible( bool lineNumbersVisible )
 void AbstractLogView::setFixedPrefixVisible( bool visible )
 {
     fixedPrefixVisible_ = visible;
+    fixedPrefixPattern_ = Configuration::get().fixedPrefixPattern();
+    fixedPrefixRegex_ = QRegularExpression( fixedPrefixPattern_,
+                                            QRegularExpression::UseUnicodePropertiesOption );
     updateScrollBars();
     forceRefresh();
 }
@@ -2240,6 +2247,20 @@ void AbstractLogView::drawTextArea( QPaintDevice* paintDevice )
     static constexpr int FixedPrefixPadding = 3;
     const bool drawFixedPrefix = fixedPrefixVisible_ && !useTextWrap_
                                  && firstCol_.get() >= FixedPrefixColumns;
+    const auto makeFixedPrefixText = [ this ]( const QString& expandedLine ) {
+        if ( !fixedPrefixPattern_.isEmpty() ) {
+            if ( !fixedPrefixRegex_.isValid() ) {
+                return QString{};
+            }
+
+            const auto match = fixedPrefixRegex_.match( expandedLine );
+            return ( match.hasMatch() && match.lastCapturedIndex() >= 1 )
+                       ? match.captured( 1 ).left( FixedPrefixColumns )
+                       : QString{};
+        }
+
+        return expandedLine.left( FixedPrefixColumns );
+    };
 
     // First check the lines to be drawn are within range (might not be the case if
     // the file has just changed)
@@ -2485,7 +2506,7 @@ void AbstractLogView::drawTextArea( QPaintDevice* paintDevice )
                                fixedPrefixAreaWidth - SeparatorWidth, finalLineHeight,
                                prefixBackColor );
 
-            const auto prefixText = expandedLine.left( FixedPrefixColumns );
+            const auto prefixText = makeFixedPrefixText( expandedLine );
             painter->save();
             painter->setClipRect( fixedPrefixAreaStartX + FixedPrefixPadding, yPos,
                                   fixedPrefixAreaWidth - 2 * FixedPrefixPadding - SeparatorWidth,

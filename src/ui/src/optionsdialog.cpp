@@ -323,6 +323,7 @@ void OptionsDialog::updateDialogFromConfig()
     }
 
     hideAnsiColorsCheckBox->setChecked( config.hideAnsiColorSequences() );
+    fixedPrefixPatternLineEdit->setText( config.fixedPrefixPattern() );
 
     // Regexp types
     mainSearchBox->setCurrentIndex( getRegexpTypeIndex( config.mainRegexpType() ) );
@@ -544,6 +545,7 @@ void OptionsDialog::updateConfigFromDialog()
 
     config.setStyle( styleComboBox->currentText() );
     config.setHideAnsiColorSequences( hideAnsiColorsCheckBox->isChecked() );
+    config.setFixedPrefixPattern( fixedPrefixPatternLineEdit->text() );
 
     config.setDefaultEncodingMib( encodingComboBox->currentData().toInt() );
 
