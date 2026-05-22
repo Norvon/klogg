@@ -425,8 +425,8 @@
          <property name="title">
           <string>Miscellaneous</string>
          </property>
-         <layout class="QVBoxLayout" name="verticalLayout_6">
-          <item>
+         <layout class="QGridLayout" name="viewOtherLayout">
+          <item row="0" column="0" colspan="2">
            <widget class="QCheckBox" name="hideAnsiColorsCheckBox">
             <property name="enabled">
              <bool>true</bool>
@@ -439,26 +439,60 @@
             </property>
            </widget>
           </item>
-          <item>
-           <layout class="QFormLayout" name="fixedPrefixPatternLayout">
-            <item row="0" column="0">
-             <widget class="QLabel" name="fixedPrefixPatternLabel">
-              <property name="text">
-               <string>Line prefix regex:</string>
-              </property>
-             </widget>
-            </item>
-            <item row="0" column="1">
-             <widget class="QLineEdit" name="fixedPrefixPatternLineEdit">
-              <property name="toolTip">
-               <string>Shows the first capture group. Leave empty to use the first 20 characters.</string>
-              </property>
-              <property name="placeholderText">
-               <string>Example: ^(\S+)</string>
-              </property>
-             </widget>
-            </item>
-           </layout>
+          <item row="1" column="0">
+           <widget class="QLabel" name="fixedPrefixPatternLabel">
+            <property name="text">
+             <string>Line prefix regex:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QLineEdit" name="fixedPrefixPatternLineEdit">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="toolTip">
+             <string>Shows the first capture group. Leave empty to show blank prefixes.</string>
+            </property>
+            <property name="placeholderText">
+             <string>Example: ^(\S+)</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="0">
+           <widget class="QLabel" name="fixedPrefixColumnsLabel">
+            <property name="text">
+             <string>Line prefix width:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="1">
+           <widget class="QSpinBox" name="fixedPrefixColumnsSpinBox">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="toolTip">
+             <string>Maximum characters shown in the automatic line prefix column.</string>
+            </property>
+            <property name="suffix">
+             <string> chars</string>
+            </property>
+            <property name="minimum">
+             <number>1</number>
+            </property>
+            <property name="maximum">
+             <number>200</number>
+            </property>
+            <property name="value">
+             <number>20</number>
+            </property>
+           </widget>
           </item>
          </layout>
         </widget>

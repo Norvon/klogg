@@ -289,6 +289,10 @@ class Configuration final : public Persistable<Configuration> {
     {
         return fixedPrefixPattern_;
     }
+    int fixedPrefixColumns() const
+    {
+        return fixedPrefixColumns_;
+    }
     QString style() const
     {
         return style_;
@@ -308,6 +312,10 @@ class Configuration final : public Persistable<Configuration> {
     void setFixedPrefixPattern( const QString& pattern )
     {
         fixedPrefixPattern_ = pattern;
+    }
+    void setFixedPrefixColumns( int columns )
+    {
+        fixedPrefixColumns_ = columns;
     }
     void setMinimizeToTray( bool minimizeToTray )
     {
@@ -579,6 +587,7 @@ class Configuration final : public Persistable<Configuration> {
     bool lineNumbersVisibleInFiltered_ = true;
     bool fixedPrefixVisible_ = false;
     QString fixedPrefixPattern_;
+    int fixedPrefixColumns_ = 20;
     bool minimizeToTray_ = false;
     QString style_;
 

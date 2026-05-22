@@ -334,6 +334,7 @@ class AbstractLogView : public QAbstractScrollArea, public SearchableWidgetInter
     // Enables the fixed prefix column; it appears after horizontal scroll hides the prefix.
     bool fixedPrefixVisible_ = false;
     QString fixedPrefixPattern_;
+    int fixedPrefixColumns_ = 20;
     QRegularExpression fixedPrefixRegex_;
 
     // Pointer to the CrawlerWidget's data set

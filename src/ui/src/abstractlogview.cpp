@@ -410,6 +410,7 @@ AbstractLogView::AbstractLogView( const AbstractLogData* newLogData,
     useTextWrap_ = config.useTextWrap();
     fixedPrefixVisible_ = config.fixedPrefixVisible();
     fixedPrefixPattern_ = config.fixedPrefixPattern();
+    fixedPrefixColumns_ = config.fixedPrefixColumns();
     fixedPrefixRegex_ = QRegularExpression( fixedPrefixPattern_,
                                             QRegularExpression::UseUnicodePropertiesOption );
 
@@ -1729,6 +1730,7 @@ void AbstractLogView::setFixedPrefixVisible( bool visible )
 {
     fixedPrefixVisible_ = visible;
     fixedPrefixPattern_ = Configuration::get().fixedPrefixPattern();
+    fixedPrefixColumns_ = Configuration::get().fixedPrefixColumns();
     fixedPrefixRegex_ = QRegularExpression( fixedPrefixPattern_,
                                             QRegularExpression::UseUnicodePropertiesOption );
     updateScrollBars();
@@ -2243,23 +2245,19 @@ void AbstractLogView::drawTextArea( QPaintDevice* paintDevice )
     static constexpr int BulletAreaWidth = 11;
     static constexpr int ContentMarginWidth = 1;
     static constexpr int LineNumberPadding = 3;
-    static constexpr int FixedPrefixColumns = 20;
     static constexpr int FixedPrefixPadding = 3;
+    const int fixedPrefixColumns = std::clamp( fixedPrefixColumns_, 1, 200 );
     const bool drawFixedPrefix = fixedPrefixVisible_ && !useTextWrap_
-                                 && firstCol_.get() >= FixedPrefixColumns;
-    const auto makeFixedPrefixText = [ this ]( const QString& expandedLine ) {
-        if ( !fixedPrefixPattern_.isEmpty() ) {
-            if ( !fixedPrefixRegex_.isValid() ) {
-                return QString{};
-            }
-
-            const auto match = fixedPrefixRegex_.match( expandedLine );
-            return ( match.hasMatch() && match.lastCapturedIndex() >= 1 )
-                       ? match.captured( 1 ).left( FixedPrefixColumns )
-                       : QString{};
+                                 && firstCol_.get() >= fixedPrefixColumns;
+    const auto makeFixedPrefixText = [ this, fixedPrefixColumns ]( const QString& expandedLine ) {
+        if ( fixedPrefixPattern_.isEmpty() || !fixedPrefixRegex_.isValid() ) {
+            return QString{};
         }
 
-        return expandedLine.left( FixedPrefixColumns );
+        const auto match = fixedPrefixRegex_.match( expandedLine );
+        return ( match.hasMatch() && match.lastCapturedIndex() >= 1 )
+                   ? match.captured( 1 ).left( fixedPrefixColumns )
+                   : QString{};
     };
 
     // First check the lines to be drawn are within range (might not be the case if
@@ -2322,7 +2320,7 @@ void AbstractLogView::drawTextArea( QPaintDevice* paintDevice )
     int fixedPrefixAreaStartX = contentStartPosX;
     int fixedPrefixAreaWidth = 0;
     if ( drawFixedPrefix ) {
-        fixedPrefixAreaWidth = 2 * FixedPrefixPadding + charWidth_ * FixedPrefixColumns;
+        fixedPrefixAreaWidth = 2 * FixedPrefixPadding + charWidth_ * fixedPrefixColumns;
         painter->fillRect( contentStartPosX - SeparatorWidth, 0,
                            fixedPrefixAreaWidth + SeparatorWidth, paintDeviceHeight,
                            palette.color( QPalette::AlternateBase ) );

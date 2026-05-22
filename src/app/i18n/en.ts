@@ -871,13 +871,28 @@
     </message>
     <message>
         <location filename="../../ui/include/optionsdialog.ui" line="452"/>
-        <source>Shows the first capture group. Leave empty to use the first 20 characters.</source>
-        <translation>Shows the first capture group. Leave empty to use the first 20 characters.</translation>
+        <source>Shows the first capture group. Leave empty to show blank prefixes.</source>
+        <translation>Shows the first capture group. Leave empty to show blank prefixes.</translation>
     </message>
     <message>
         <location filename="../../ui/include/optionsdialog.ui" line="455"/>
         <source>Example: ^(\S+)</source>
         <translation>Example: ^(\S+)</translation>
+    </message>
+    <message>
+        <location filename="../../ui/include/optionsdialog.ui" line="468"/>
+        <source>Line prefix width:</source>
+        <translation>Line prefix width:</translation>
+    </message>
+    <message>
+        <location filename="../../ui/include/optionsdialog.ui" line="481"/>
+        <source>Maximum characters shown in the automatic line prefix column.</source>
+        <translation>Maximum characters shown in the automatic line prefix column.</translation>
+    </message>
+    <message>
+        <location filename="../../ui/include/optionsdialog.ui" line="484"/>
+        <source> chars</source>
+        <translation> chars</translation>
     </message>
     <message>
         <location filename="../../ui/include/optionsdialog.ui" line="431"/>

@@ -905,13 +905,28 @@
     </message>
     <message>
         <location filename="../../ui/include/optionsdialog.ui" line="452"/>
-        <source>Shows the first capture group. Leave empty to use the first 20 characters.</source>
-        <translation>显示第一个捕获组。留空时使用每行前20个字符。</translation>
+        <source>Shows the first capture group. Leave empty to show blank prefixes.</source>
+        <translation>显示第一个捕获组。留空时前缀为空。</translation>
     </message>
     <message>
         <location filename="../../ui/include/optionsdialog.ui" line="455"/>
         <source>Example: ^(\S+)</source>
         <translation>示例: ^(\S+)</translation>
+    </message>
+    <message>
+        <location filename="../../ui/include/optionsdialog.ui" line="468"/>
+        <source>Line prefix width:</source>
+        <translation>行前缀宽度:</translation>
+    </message>
+    <message>
+        <location filename="../../ui/include/optionsdialog.ui" line="481"/>
+        <source>Maximum characters shown in the automatic line prefix column.</source>
+        <translation>自动行前缀列最多显示的字符数。</translation>
+    </message>
+    <message>
+        <location filename="../../ui/include/optionsdialog.ui" line="484"/>
+        <source> chars</source>
+        <translation> 个字符</translation>
     </message>
     <message>
         <location filename="../../ui/include/optionsdialog.ui" line="462"/>
