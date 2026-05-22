@@ -663,8 +663,8 @@
     </message>
     <message>
         <location filename="../../ui/src/mainwindow.cpp" line="1828"/>
-        <source> (build </source>
-        <translation> （建構 </translation>
+        <source> (version %1)</source>
+        <translation> （版本 %1）</translation>
     </message>
     <message>
         <location filename="../../ui/src/mainwindow.cpp" line="1855"/>

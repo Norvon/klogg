@@ -1851,8 +1851,8 @@ void MainWindow::updateTitleBar( const QString& file_name )
         indexPart = QString( " #%1" ).arg( session_.windowIndex() + 1 );
     }
 
-    setWindowTitle( tr( "%1 - %2%3" ).arg( shownName, tr( "klogg" ), indexPart ) + tr( " (build " )
-                    + kloggVersion() + ")" );
+    setWindowTitle( tr( "%1 - %2%3" ).arg( shownName, tr( "klogg" ), indexPart )
+                    + tr( " (version %1)" ).arg( kloggVersion() ) );
 }
 
 void MainWindow::addRecentFile( const QString& fileName )

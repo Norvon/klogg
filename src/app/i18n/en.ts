@@ -643,8 +643,8 @@
     </message>
     <message>
         <location filename="../../ui/src/mainwindow.cpp" line="1828"/>
-        <source> (build </source>
-        <translation> (build </translation>
+        <source> (version %1)</source>
+        <translation> (version %1)</translation>
     </message>
     <message>
         <location filename="../../ui/src/mainwindow.cpp" line="1855"/>
