@@ -160,7 +160,7 @@ struct CliParameters {
 
     static void print_version()
     {
-        std::cout << "klogg " << kloggVersion().data() << "\n";
+        std::cout << "klogg " << kloggDisplayVersion().data() << "\n";
         std::cout << "Built " << kloggBuildDate().data() << " from " << kloggCommit().data() << "("
                   << kloggGitVersion().data() << ")\n";
 

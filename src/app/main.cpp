@@ -126,6 +126,7 @@ int main( int argc, char* argv[] )
 
 
     MainWindow::installLanguage( config.language() );
+    app.setApplicationVersion( kloggDisplayVersion() );
     CliParameters parameters( app );
 
     const auto logLevel

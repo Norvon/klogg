@@ -21,7 +21,6 @@ case "${variant}" in
     ;;
 esac
 
-source_app="${repo_root}/build_root/macos-arm64/output/${app_name}"
 target_app="/Applications/${app_name}"
 
 close_running_app() {
@@ -58,9 +57,20 @@ close_running_app() {
   done
 }
 
-cmake --preset "${preset}" -S "${repo_root}"
+configure_output="$(cmake --preset "${preset}" -S "${repo_root}")"
+printf '%s\n' "${configure_output}"
+
+build_dir="$(printf '%s\n' "${configure_output}" \
+  | sed -n 's/^-- Build files have been written to: //p' \
+  | tail -n 1)"
+if [[ -z "${build_dir}" ]]; then
+  echo "Unable to determine CMake binary dir for preset: ${preset}" >&2
+  exit 1
+fi
+
 cmake --build --preset "${preset}"
 
+source_app="${build_dir}/output/${app_name}"
 if [[ ! -d "${source_app}" ]]; then
   echo "Built app not found: ${source_app}" >&2
   exit 1

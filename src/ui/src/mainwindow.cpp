@@ -1235,7 +1235,7 @@ void MainWindow::about()
             "<p>Copyright &copy; 2020 Nicolas Bonnefon, Anton Filimonov and other contributors</p>"
             "<p>You may modify and redistribute the program under the terms of the GPL (version 3 "
             "or later).</p>" )
-            .arg( kloggVersion(), kloggBuildDate(), kloggCommit() ) );
+            .arg( kloggDisplayVersion(), kloggBuildDate(), kloggCommit() ) );
 }
 
 void MainWindow::aboutQt()
@@ -1852,7 +1852,7 @@ void MainWindow::updateTitleBar( const QString& file_name )
     }
 
     setWindowTitle( tr( "%1 - %2%3" ).arg( shownName, tr( "klogg" ), indexPart )
-                    + tr( " (version %1)" ).arg( kloggVersion() ) );
+                    + tr( " (version %1)" ).arg( kloggDisplayVersion() ) );
 }
 
 void MainWindow::addRecentFile( const QString& fileName )

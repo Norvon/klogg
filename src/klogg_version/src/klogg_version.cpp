@@ -26,6 +26,11 @@ QLatin1String kloggVersion()
     return QLatin1String( KLOGG_VERSION );
 }
 
+QLatin1String kloggDisplayVersion()
+{
+    return QLatin1String( KLOGG_DISPLAY_VERSION );
+}
+
 QLatin1String kloggBuildDate()
 {
     return QLatin1String( KLOGG_DATE );

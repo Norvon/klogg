@@ -65,6 +65,11 @@ endif()
 message("Project version is ${PROJECT_VERSION}")
 message("Project version tweak is ${PROJECT_VERSION_TWEAK}")
 
+set(KLOGG_LOCAL_BUILD_VERSION OFF)
+if("${BUILD_VERSION}" STREQUAL "" AND "${BUILD_NUMBER}" STREQUAL "")
+  set(KLOGG_LOCAL_BUILD_VERSION ON)
+endif()
+
 include_directories(${CMAKE_BINARY_DIR}/generated)
 
 include(win32_rc)
@@ -93,7 +98,8 @@ generate_product_version(
 
 add_custom_target(
   generate_version ALL
-  COMMAND ${CMAKE_COMMAND} -DBUILD_VERSION=${PROJECT_VERSION}.${PROJECT_VERSION_TWEAK} -P
+  COMMAND ${CMAKE_COMMAND} -DBUILD_VERSION=${PROJECT_VERSION}.${PROJECT_VERSION_TWEAK}
+          -DKLOGG_LOCAL_BUILD_VERSION=${KLOGG_LOCAL_BUILD_VERSION} -P
           ${CMAKE_SOURCE_DIR}/cmake/generate_version_h.cmake
   DEPENDS ${ProductVersionResourceFiles}
   SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/cmake/generate_version_h.cmake
