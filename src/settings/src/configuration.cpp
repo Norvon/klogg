@@ -130,13 +130,17 @@ void Configuration::retrieveFromStorage( QSettings& settings )
         = settings.value( "quickfind.incremental", DefaultConfiguration.quickfindIncremental_ )
               .toBool();
 
-    enableMainSearchHighlight_
-        = settings
-              .value( "regexpType.mainHighlight", DefaultConfiguration.enableMainSearchHighlight_ )
-              .toBool();
+    const auto mainSearchHighlightKey = QStringLiteral( "regexpType.mainHighlight" );
+    const auto hasMainSearchHighlightSetting = settings.contains( mainSearchHighlightKey );
+    enableMainSearchHighlight_ = settings
+                                     .value( mainSearchHighlightKey,
+                                             DefaultConfiguration.enableMainSearchHighlight_ )
+                                     .toBool();
     if ( !settings.value( "regexpType.selectionColorHighlightMigrated", false ).toBool() ) {
-        enableMainSearchHighlight_ = true;
-        settings.setValue( "regexpType.mainHighlight", enableMainSearchHighlight_ );
+        if ( !hasMainSearchHighlightSetting ) {
+            enableMainSearchHighlight_ = true;
+            settings.setValue( mainSearchHighlightKey, enableMainSearchHighlight_ );
+        }
         settings.setValue( "regexpType.selectionColorHighlightMigrated", true );
     }
 

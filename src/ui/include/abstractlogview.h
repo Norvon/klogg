@@ -316,7 +316,7 @@ class AbstractLogView : public QAbstractScrollArea, public SearchableWidgetInter
     static constexpr int PullToFollowHookedHeight = 10;
 
     // Width of the bullet zone, including decoration
-    int bulletZoneWidthPx_;
+    int bulletZoneWidthPx_ = 0;
 
     // Total size of all margins and decorations in pixels
     int leftMarginPx_ = 0;
@@ -451,6 +451,10 @@ class AbstractLogView : public QAbstractScrollArea, public SearchableWidgetInter
     LinesCount getNbVisibleLines() const;
     LinesCount getNbBottomWrappedVisibleLines() const;
     LineLength getNbVisibleCols() const;
+    int clampedFixedPrefixColumns() const;
+    bool shouldDrawFixedPrefix() const;
+    int calculateLeftMarginPx() const;
+    bool updateTextAreaMargins();
 
     FilePosition convertCoordToFilePos( const QPoint& pos ) const;
     OptionalLineNumber convertCoordToLine( int yPos ) const;

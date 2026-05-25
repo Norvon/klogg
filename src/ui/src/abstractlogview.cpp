@@ -138,6 +138,16 @@ namespace {
 
 int mapPullToFollowLength( int length );
 
+static constexpr int TextAreaSeparatorWidth = 1;
+static constexpr int BulletAreaWidth = 11;
+static constexpr int ContentMarginWidth = 1;
+static constexpr int LineNumberPadding = 3;
+static constexpr int FixedPrefixPadding = 3;
+static constexpr int MinFixedPrefixColumns = 1;
+static constexpr int MaxFixedPrefixColumns = 200;
+static constexpr LinesCount::UnderlyingType FixedPrefixLookbackLines = 5000;
+static constexpr LinesCount::UnderlyingType FixedPrefixLookbackChunkLines = 256;
+
 int intLog2( uint64_t x )
 {
     return 63 - countLeadingZeroes( x | 1 );
@@ -1052,6 +1062,9 @@ void AbstractLogView::scrollContentsBy( int dx, int dy )
     }
 
     firstCol_ = ( firstCol_.get() - dx ) >= 0 ? LineColumn{ firstCol_.get() - dx } : 0_lcol;
+    if ( updateTextAreaMargins() ) {
+        updateScrollBars();
+    }
 
     // Update the overview if we have one
     if ( overview_ != nullptr ) {
@@ -1737,13 +1750,17 @@ void AbstractLogView::jumpToLine( LineNumber line )
 void AbstractLogView::setLineNumbersVisible( bool lineNumbersVisible )
 {
     lineNumbersVisible_ = lineNumbersVisible;
+    updateScrollBars();
+    forceRefresh();
 }
 
 void AbstractLogView::setFixedPrefixVisible( bool visible )
 {
+    const auto& config = Configuration::get();
+
     fixedPrefixVisible_ = visible;
-    fixedPrefixPattern_ = Configuration::get().fixedPrefixPattern();
-    fixedPrefixColumns_ = Configuration::get().fixedPrefixColumns();
+    fixedPrefixPattern_ = config.fixedPrefixPattern();
+    fixedPrefixColumns_ = config.fixedPrefixColumns();
     fixedPrefixRegex_ = QRegularExpression( fixedPrefixPattern_,
                                             QRegularExpression::UseUnicodePropertiesOption );
     updateScrollBars();
@@ -1780,7 +1797,56 @@ LinesCount AbstractLogView::getNbVisibleLines() const
 LineLength AbstractLogView::getNbVisibleCols() const
 {
     const auto scrollBarWidth = verticalScrollBar()->isVisible() ? verticalScrollBar()->width() : 0;
-    return LineLength{ ( viewport()->width() - leftMarginPx_ - scrollBarWidth ) / charWidth_ + 1 };
+    const auto visibleColumns
+        = ( viewport()->width() - leftMarginPx_ - scrollBarWidth )
+              / std::max( charWidth_, 1 )
+          + 1;
+    return LineLength{ std::max( visibleColumns, 1 ) };
+}
+
+int AbstractLogView::clampedFixedPrefixColumns() const
+{
+    return std::clamp( fixedPrefixColumns_, MinFixedPrefixColumns, MaxFixedPrefixColumns );
+}
+
+bool AbstractLogView::shouldDrawFixedPrefix() const
+{
+    return fixedPrefixVisible_ && !useTextWrap_ && firstCol_ > 0_lcol;
+}
+
+int AbstractLogView::calculateLeftMarginPx() const
+{
+    int contentStartPosX = BulletAreaWidth + TextAreaSeparatorWidth;
+
+    if ( lineNumbersVisible_ ) {
+        const int nbDigitsInLineNumber = countDigits( maxDisplayLineNumber().get() );
+        const auto lineNumberWidth = charWidth_ * nbDigitsInLineNumber;
+        contentStartPosX += 2 * LineNumberPadding + lineNumberWidth;
+    }
+
+    if ( shouldDrawFixedPrefix() ) {
+        contentStartPosX
+            += 2 * FixedPrefixPadding + charWidth_ * clampedFixedPrefixColumns();
+    }
+
+    return contentStartPosX + TextAreaSeparatorWidth;
+}
+
+bool AbstractLogView::updateTextAreaMargins()
+{
+    const auto previousBulletZoneWidthPx = bulletZoneWidthPx_;
+    const auto previousLeftMarginPx = leftMarginPx_;
+
+    bulletZoneWidthPx_ = BulletAreaWidth + TextAreaSeparatorWidth;
+    leftMarginPx_ = calculateLeftMarginPx();
+
+    const auto changed = previousBulletZoneWidthPx != bulletZoneWidthPx_
+                         || previousLeftMarginPx != leftMarginPx_;
+    if ( changed ) {
+        textAreaCache_.invalid_ = true;
+    }
+
+    return changed;
 }
 
 // Converts the mouse x, y coordinates to the line number in the file
@@ -2198,6 +2264,8 @@ LinesCount AbstractLogView::getNbBottomWrappedVisibleLines() const
 
 void AbstractLogView::updateScrollBars()
 {
+    updateTextAreaMargins();
+
     const LinesCount visibleLines = getNbVisibleLines();
     const LineLength visibleColumns = getNbVisibleCols();
     if ( logData_->getNbLine() < visibleLines ) {
@@ -2256,16 +2324,8 @@ void AbstractLogView::drawTextArea( QPaintDevice* paintDevice )
     static const QBrush markBrush = QBrush( "dodgerblue" );
     static const QBrush markedMatchBrush = QBrush( "violet" );
 
-    static constexpr int SeparatorWidth = 1;
-    static constexpr int BulletAreaWidth = 11;
-    static constexpr int ContentMarginWidth = 1;
-    static constexpr int LineNumberPadding = 3;
-    static constexpr int FixedPrefixPadding = 3;
-    static constexpr LinesCount::UnderlyingType FixedPrefixLookbackLines = 5000;
-    static constexpr LinesCount::UnderlyingType FixedPrefixLookbackChunkLines = 256;
-    const int fixedPrefixColumns = std::clamp( fixedPrefixColumns_, 1, 200 );
-    const bool drawFixedPrefix = fixedPrefixVisible_ && !useTextWrap_
-                                 && firstCol_ > 0_lcol;
+    const int fixedPrefixColumns = clampedFixedPrefixColumns();
+    const bool drawFixedPrefix = shouldDrawFixedPrefix();
     const bool canExtractFixedPrefix = !fixedPrefixPattern_.isEmpty()
                                        && fixedPrefixRegex_.isValid()
                                        && fixedPrefixRegex_.captureCount() >= 1;
@@ -2343,17 +2403,12 @@ void AbstractLogView::drawTextArea( QPaintDevice* paintDevice )
     painter->fillRect( 0, 0, paintDeviceWidth, paintDeviceHeight,
                        palette.color( QPalette::Window ) );
 
-    const auto previousLeftMarginPx = leftMarginPx_;
-
     // First draw the bullet left margin
     painter->setPen( palette.color( QPalette::Text ) );
     painter->fillRect( 0, 0, BulletAreaWidth, paintDeviceHeight, Qt::darkGray );
 
     // Column at which the content should start (pixels)
-    int contentStartPosX = BulletAreaWidth + SeparatorWidth;
-
-    // This is also the bullet zone width, used for marking clicks
-    bulletZoneWidthPx_ = contentStartPosX;
+    int contentStartPosX = BulletAreaWidth + TextAreaSeparatorWidth;
 
     // Update the length of line numbers
     const int nbDigitsInLineNumber = countDigits( maxDisplayLineNumber().get() );
@@ -2366,44 +2421,37 @@ void AbstractLogView::drawTextArea( QPaintDevice* paintDevice )
         lineNumberAreaStartX = contentStartPosX;
 
         painter->setPen( palette.color( QPalette::Text ) );
-        painter->fillRect( contentStartPosX - SeparatorWidth, 0,
-                           lineNumberAreaWidth + SeparatorWidth, paintDeviceHeight, Qt::darkGray );
+        painter->fillRect( contentStartPosX - TextAreaSeparatorWidth, 0,
+                           lineNumberAreaWidth + TextAreaSeparatorWidth, paintDeviceHeight,
+                           Qt::darkGray );
 
-        painter->drawLine( contentStartPosX + lineNumberAreaWidth - SeparatorWidth, 0,
-                           contentStartPosX + lineNumberAreaWidth - SeparatorWidth,
+        painter->drawLine( contentStartPosX + lineNumberAreaWidth - TextAreaSeparatorWidth, 0,
+                           contentStartPosX + lineNumberAreaWidth - TextAreaSeparatorWidth,
                            paintDeviceHeight );
 
         // Update for drawing the actual text
         contentStartPosX += lineNumberAreaWidth;
     }
     else {
-        painter->fillRect( contentStartPosX - SeparatorWidth, 0, SeparatorWidth + 1,
+        painter->fillRect( contentStartPosX - TextAreaSeparatorWidth, 0,
+                           TextAreaSeparatorWidth + 1,
                            paintDeviceHeight, palette.color( QPalette::Disabled, QPalette::Text ) );
-        // contentStartPosX += SEPARATOR_WIDTH;
     }
 
     int fixedPrefixAreaStartX = contentStartPosX;
     int fixedPrefixAreaWidth = 0;
     if ( drawFixedPrefix ) {
         fixedPrefixAreaWidth = 2 * FixedPrefixPadding + charWidth_ * fixedPrefixColumns;
-        painter->fillRect( contentStartPosX - SeparatorWidth, 0,
-                           fixedPrefixAreaWidth + SeparatorWidth, paintDeviceHeight,
+        painter->fillRect( contentStartPosX - TextAreaSeparatorWidth, 0,
+                           fixedPrefixAreaWidth + TextAreaSeparatorWidth, paintDeviceHeight,
                            palette.color( QPalette::AlternateBase ) );
-        painter->drawLine( contentStartPosX + fixedPrefixAreaWidth - SeparatorWidth, 0,
-                           contentStartPosX + fixedPrefixAreaWidth - SeparatorWidth,
+        painter->drawLine( contentStartPosX + fixedPrefixAreaWidth - TextAreaSeparatorWidth, 0,
+                           contentStartPosX + fixedPrefixAreaWidth - TextAreaSeparatorWidth,
                            paintDeviceHeight );
         contentStartPosX += fixedPrefixAreaWidth;
     }
 
     painter->drawLine( BulletAreaWidth, 0, BulletAreaWidth, paintDeviceHeight - 1 );
-
-    // This is the total width of the 'margin' (including line number if any)
-    // used for mouse calculation etc...
-    leftMarginPx_ = contentStartPosX + SeparatorWidth;
-    if ( leftMarginPx_ != previousLeftMarginPx ) {
-        updateScrollBars();
-    }
-    nbVisibleCols = getNbVisibleCols();
 
     const auto searchStartIndex = lineIndex( searchStart_ );
     const auto searchEndIndex = [ this ] {
@@ -2566,13 +2614,14 @@ void AbstractLogView::drawTextArea( QPaintDevice* paintDevice )
                       ? backColor
                       : palette.color( QPalette::AlternateBase );
             painter->fillRect( fixedPrefixAreaStartX, yPos,
-                               fixedPrefixAreaWidth - SeparatorWidth, finalLineHeight,
+                               fixedPrefixAreaWidth - TextAreaSeparatorWidth, finalLineHeight,
                                prefixBackColor );
 
             const auto prefixText = makeFixedPrefixText( expandedLine, lineNumber );
             painter->save();
             painter->setClipRect( fixedPrefixAreaStartX + FixedPrefixPadding, yPos,
-                                  fixedPrefixAreaWidth - 2 * FixedPrefixPadding - SeparatorWidth,
+                                  fixedPrefixAreaWidth - 2 * FixedPrefixPadding
+                                      - TextAreaSeparatorWidth,
                                   fontHeight );
             painter->setPen( foreColor );
             painter->drawText( fixedPrefixAreaStartX + FixedPrefixPadding, yPos + fontAscent,

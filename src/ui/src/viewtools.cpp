@@ -47,7 +47,7 @@ void ElasticHook::move( int value )
               > TIMER_PERIOD_MS ) )
         decreasePosition();
 
-    if ( allowHook_ && ( !hooked_ ) && position_ >= hook_threshold_ ) {
+    if ( ( !hooked_ ) && position_ >= hook_threshold_ ) {
         position_ -= hook_threshold_;
         hooked_ = true;
         Q_EMIT hooked( true );
