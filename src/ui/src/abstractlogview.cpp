@@ -1811,7 +1811,7 @@ int AbstractLogView::clampedFixedPrefixColumns() const
 
 bool AbstractLogView::shouldDrawFixedPrefix() const
 {
-    return fixedPrefixVisible_ && !useTextWrap_ && firstCol_ > 0_lcol;
+    return fixedPrefixVisible_;
 }
 
 int AbstractLogView::calculateLeftMarginPx() const

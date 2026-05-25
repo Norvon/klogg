@@ -332,7 +332,7 @@ class AbstractLogView : public QAbstractScrollArea, public SearchableWidgetInter
 
     // Whether to show line numbers or not
     bool lineNumbersVisible_ = false;
-    // Enables the fixed prefix column; it appears after horizontal scroll hides the prefix.
+    // Enables the fixed prefix column.
     bool fixedPrefixVisible_ = false;
     QString fixedPrefixPattern_;
     int fixedPrefixColumns_ = 20;
