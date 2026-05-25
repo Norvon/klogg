@@ -41,7 +41,9 @@
 #define CRAWLERWIDGET_H
 
 #include <cstddef>
+#include <cstdint>
 #include <optional>
+#include <unordered_map>
 
 #include <QCheckBox>
 #include <QComboBox>
@@ -274,7 +276,6 @@ class CrawlerWidget : public QSplitter,
 
     void changeFilteredView(int tabIndex);
     void closeFilteredView(int tabIndex);
-    void filteredViewDestroyed(QObject* view);
 
   private:
     // State machine holding the state of the search, used to allow/disallow
@@ -350,6 +351,14 @@ class CrawlerWidget : public QSplitter,
     void applyFrequentSearch( const QString& searchText );
     void resetFrequentSearchUsage( const QString& searchText );
     void confirmResetAllFrequentSearches();
+    struct AutoMarkedSearchState {
+        QStringList searches;
+        QHash<QString, QSet<LineNumber::UnderlyingType>> linesBySearch;
+    };
+    AutoMarkedSearchState& currentAutoMarkedSearchState();
+    const AutoMarkedSearchState& currentAutoMarkedSearchState() const;
+    uint64_t markCurrentMatchesAsAutoMarked( const QString& searchText );
+    void refreshViewsAfterMarksChanged();
     void refreshAutoMarkedSearchButtons();
     bool isAutoMarkedLine( LineNumber line ) const;
     bool hasOtherAutoMarkOwner( LineNumber line, const QString& searchText ) const;
@@ -434,8 +443,7 @@ class CrawlerWidget : public QSplitter,
     SearchState searchState_;
     bool pendingAutoMarkSearch_ = false;
     QString pendingAutoMarkSearchText_;
-    QStringList autoMarkedSearches_;
-    QHash<QString, QSet<LineNumber::UnderlyingType>> autoMarkedLinesBySearch_;
+    std::unordered_map<FilteredView*, AutoMarkedSearchState> autoMarkedSearchStates_;
 
     // the current dataStatus (whether we have new, not seen, data)
     DataStatus dataStatus_ = DataStatus::OLD_DATA;

@@ -187,10 +187,12 @@ class LogFilteredData : public AbstractLogData {
     const LogData* sourceLogData_;
 
     RegularExpressionPattern currentRegExp_;
+    using MatchingLinePortion = std::optional<std::pair<LineColumn, LineLength>>;
     struct MatchingLinePortionRegexpCache {
         QString pattern;
         QRegularExpression::PatternOptions options;
         QRegularExpression regexp;
+        std::unordered_map<LineNumber::UnderlyingType, MatchingLinePortion> portions;
     };
     mutable std::optional<MatchingLinePortionRegexpCache> matchingLinePortionRegexpCache_;
     LineLength maxLength_;

@@ -337,6 +337,15 @@ class AbstractLogView : public QAbstractScrollArea, public SearchableWidgetInter
     QString fixedPrefixPattern_;
     int fixedPrefixColumns_ = 20;
     QRegularExpression fixedPrefixRegex_;
+    struct FixedPrefixLookbackCache {
+        bool valid = false;
+        const AbstractLogData* logData = nullptr;
+        QString pattern;
+        int columns = 0;
+        LineNumber firstLine = 0_lnum;
+        QString prefix;
+    };
+    FixedPrefixLookbackCache fixedPrefixLookbackCache_;
 
     // Pointer to the CrawlerWidget's data set
     const AbstractLogData* logData_;

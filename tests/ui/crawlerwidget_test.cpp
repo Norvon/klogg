@@ -118,6 +118,12 @@ struct CrawlerWidget::access_by<CrawlerWidgetPrivate> {
         QTest::keyClicks( crawler->searchLineEdit_, pattern );
     }
 
+    void replaceSearchPattern( const QString& pattern )
+    {
+        crawler->searchLineEdit_->setEditText( pattern );
+        crawler->updatePredefinedFiltersWidget();
+    }
+
     void enableCaseSensitiveSearch()
     {
         if ( !crawler->matchCaseButton_->isChecked() ) {
@@ -156,6 +162,24 @@ struct CrawlerWidget::access_by<CrawlerWidgetPrivate> {
         REQUIRE( crawler->markSearchResultsButton_->isEnabled() );
 
         QTest::mouseClick( crawler->markSearchResultsButton_, Qt::LeftButton );
+    }
+
+    void keepNextSearchResults()
+    {
+        if ( !crawler->keepSearchResultsButton_->isChecked() ) {
+            QTest::mouseClick( crawler->keepSearchResultsButton_, Qt::LeftButton );
+        }
+    }
+
+    int filteredTabCount() const
+    {
+        return crawler->tabbedFilteredView_->count();
+    }
+
+    void switchFilteredTab( int tabIndex )
+    {
+        crawler->tabbedFilteredView_->setCurrentIndex( tabIndex );
+        QTest::qWait( 50 );
     }
 
     QToolButton* frequentSearchButton( int valueIndex ) const
@@ -489,6 +513,67 @@ SCENARIO( "Crawler widget search", "[ui]" )
             THEN( "has lines matched" )
             {
                 REQUIRE( crawlerVisitor.getLogFilteredNbLines().get() >= 2 );
+            }
+        }
+    }
+}
+
+SCENARIO( "Crawler widget auto marked searches are scoped to kept result tabs", "[ui]" )
+{
+    QTemporaryFile file{ "crawler_auto_marked_tabs_test_XXXXXX" };
+    REQUIRE( generateDataFiles( file ) );
+
+    Session session;
+    session.savedSearches().clear();
+
+    CrawlerWidgetVisitor crawlerVisitor;
+    crawlerVisitor.crawler.reset( static_cast<CrawlerWidget*>(
+        session.open( file.fileName(), []() { return new CrawlerWidget(); } ) ) );
+
+    waitUiState( [ & ]() { return crawlerVisitor.getLogNbLines().get() == SL_NB_LINES; } );
+    waitUiState( [ & ]() { return crawlerVisitor.isLoadingFinished(); } );
+
+    GIVEN( "two kept filtered result tabs with auto-marked searches" )
+    {
+        crawlerVisitor.replaceSearchPattern( "line 000010" );
+        crawlerVisitor.runSearch();
+        crawlerVisitor.markCurrentSearchResults();
+
+        REQUIRE( crawlerVisitor.filteredTabCount() == 1 );
+        REQUIRE( crawlerVisitor.getMarksCount().get() == 1 );
+        REQUIRE( crawlerVisitor.autoMarkedSearchButtonCount() == 1 );
+        REQUIRE( crawlerVisitor.autoMarkedSearchTooltip( 0 ) == "line 000010" );
+
+        crawlerVisitor.keepNextSearchResults();
+        crawlerVisitor.replaceSearchPattern( "line 000011" );
+        crawlerVisitor.runSearch();
+        crawlerVisitor.markCurrentSearchResults();
+
+        REQUIRE( crawlerVisitor.filteredTabCount() == 2 );
+        REQUIRE( crawlerVisitor.getMarksCount().get() == 1 );
+        REQUIRE( crawlerVisitor.autoMarkedSearchButtonCount() == 1 );
+        REQUIRE( crawlerVisitor.autoMarkedSearchTooltip( 0 ) == "line 000011" );
+
+        WHEN( "removing a marked search from the first tab" )
+        {
+            crawlerVisitor.switchFilteredTab( 0 );
+
+            REQUIRE( crawlerVisitor.getMarksCount().get() == 1 );
+            REQUIRE( crawlerVisitor.autoMarkedSearchButtonCount() == 1 );
+            REQUIRE( crawlerVisitor.autoMarkedSearchTooltip( 0 ) == "line 000010" );
+
+            crawlerVisitor.removeAutoMarkedSearch( 0 );
+
+            THEN( "only the first tab marks are removed" )
+            {
+                REQUIRE( crawlerVisitor.getMarksCount().get() == 0 );
+                REQUIRE( crawlerVisitor.autoMarkedSearchButtonCount() == 0 );
+
+                crawlerVisitor.switchFilteredTab( 1 );
+
+                REQUIRE( crawlerVisitor.getMarksCount().get() == 1 );
+                REQUIRE( crawlerVisitor.autoMarkedSearchButtonCount() == 1 );
+                REQUIRE( crawlerVisitor.autoMarkedSearchTooltip( 0 ) == "line 000011" );
             }
         }
     }

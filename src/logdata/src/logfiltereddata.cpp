@@ -197,10 +197,10 @@ std::optional<std::pair<LineColumn, LineLength>> LogFilteredData::getMatchingLin
     }
 
     if ( !matchingLinePortionRegexpCache_.has_value()
-         || matchingLinePortionRegexpCache_->pattern != pattern
-         || matchingLinePortionRegexpCache_->options != options ) {
+        || matchingLinePortionRegexpCache_->pattern != pattern
+        || matchingLinePortionRegexpCache_->options != options ) {
         matchingLinePortionRegexpCache_ = MatchingLinePortionRegexpCache{
-            pattern, options, QRegularExpression( pattern, options ) };
+            pattern, options, QRegularExpression( pattern, options ), {} };
     }
 
     const auto& regexp = matchingLinePortionRegexpCache_->regexp;
@@ -208,10 +208,22 @@ std::optional<std::pair<LineColumn, LineLength>> LogFilteredData::getMatchingLin
         return {};
     }
 
+    auto& portionsCache = matchingLinePortionRegexpCache_->portions;
+    const auto cachedPortion = portionsCache.find( lineNumber.get() );
+    if ( cachedPortion != portionsCache.cend() ) {
+        return cachedPortion->second;
+    }
+
+    const auto cachePortion
+        = [ &portionsCache, lineNumber ]( LogFilteredData::MatchingLinePortion portion ) {
+              portionsCache[ lineNumber.get() ] = portion;
+              return portion;
+          };
+
     const auto line = sourceLogData_->getLineString( lineNumber );
     const auto match = regexp.match( line );
     if ( !match.hasMatch() || match.capturedStart( 0 ) < 0 || match.capturedLength( 0 ) <= 0 ) {
-        return {};
+        return cachePortion( {} );
     }
 
     const auto prefix = QStringView{ line }.left( match.capturedStart( 0 ) );
@@ -225,12 +237,12 @@ std::optional<std::pair<LineColumn, LineLength>> LogFilteredData::getMatchingLin
               .size();
 
     if ( expandedLength <= 0 ) {
-        return {};
+        return cachePortion( {} );
     }
 
-    return std::make_pair(
+    return cachePortion( std::make_pair(
         LineColumn{ type_safe::narrow_cast<LineColumn::UnderlyingType>( expandedStart ) },
-        LineLength{ type_safe::narrow_cast<LineLength::UnderlyingType>( expandedLength ) } );
+        LineLength{ type_safe::narrow_cast<LineLength::UnderlyingType>( expandedLength ) } ) );
 }
 
 // Scan the list for the 'lineNumber' passed

@@ -107,8 +107,18 @@ else()
   target_include_directories(klogg_uchardet_wrapper INTERFACE ${UCHARDET_INCLUDE_DIR})
 endif()
 
-if(${QT_VERSION_MAJOR} EQUAL 6) 
+if(${QT_VERSION_MAJOR} EQUAL 6)
 set(CPM_USE_LOCAL_PACKAGES OFF)
+endif()
+
+set(_KARCHIVE_PATCH_COMMAND)
+if(${QT_VERSION_MAJOR} EQUAL 6)
+  set(_KARCHIVE_PATCH_COMMAND
+      PATCH_COMMAND
+      ${CMAKE_COMMAND}
+      -DKARCHIVE_SOURCE_DIR=<SOURCE_DIR>
+      -P
+      ${CMAKE_SOURCE_DIR}/cmake/patch_karchive_qt6.cmake)
 endif()
 
 cpmaddpackage(
@@ -118,11 +128,7 @@ cpmaddpackage(
   variar/klogg_karchive
   GIT_TAG
   f546bf6ae66a8d34b43da5a41afcfbf4e1a47906
-  PATCH_COMMAND
-  ${CMAKE_COMMAND}
-  -DKARCHIVE_SOURCE_DIR=<SOURCE_DIR>
-  -P
-  ${CMAKE_SOURCE_DIR}/cmake/patch_karchive_qt6.cmake
+  ${_KARCHIVE_PATCH_COMMAND}
   EXCLUDE_FROM_ALL
   YES
 )

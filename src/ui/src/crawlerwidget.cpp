@@ -430,6 +430,7 @@ void CrawlerWidget::startNewSearch()
 
         filteredView_ = new FilteredView( logFilteredData_.get(), quickFindPattern_.get() );
         filteredViewsData_[ filteredView_ ] = logFilteredData_;
+        autoMarkedSearchStates_[ filteredView_ ] = {};
 
         connectAllFilteredViewSlots( filteredView_ );
 
@@ -472,32 +473,8 @@ void CrawlerWidget::markCurrentSearchResults()
     }
 
     const auto searchText = searchLineEdit_->currentText();
-    uint64_t newMarks = 0;
-    auto autoMarkedLines = autoMarkedLinesBySearch_.value( searchText );
-    logFilteredData_->iterateOverMatches(
-        [ this, &newMarks, &autoMarkedLines ]( LineNumber line ) {
-            if ( !logFilteredData_->lineTypeByLine( line ).testFlag(
-                     AbstractLogData::LineTypeFlags::Mark ) ) {
-                logFilteredData_->addMark( line );
-                autoMarkedLines.insert( line.get() );
-                ++newMarks;
-            }
-            else if ( isAutoMarkedLine( line ) ) {
-                autoMarkedLines.insert( line.get() );
-            }
-        } );
-
-    if ( !searchText.isEmpty() && !autoMarkedLines.isEmpty() ) {
-        autoMarkedLinesBySearch_[ searchText ] = autoMarkedLines;
-        autoMarkedSearches_.removeAll( searchText );
-        autoMarkedSearches_.push_front( searchText );
-        refreshAutoMarkedSearchButtons();
-    }
-
-    filteredView_->updateData();
-    logMainView_->updateData();
-    overview_.updateData( logData_->getNbLine() );
-    update();
+    const auto newMarks = markCurrentMatchesAsAutoMarked( searchText );
+    refreshViewsAfterMarksChanged();
 
     searchInfoLine_->setPalette( searchInfoLineDefaultPalette_ );
     searchInfoLine_->setText( tr( "%1 matches found, %2 new marks added" )
@@ -632,32 +609,8 @@ void CrawlerWidget::updateFilteredView( LinesCount nbMatches, int progress,
         const auto autoMarkSearchText = pendingAutoMarkSearchText_;
         pendingAutoMarkSearchText_.clear();
 
-        uint64_t newMarks = 0;
-        auto autoMarkedLines = autoMarkedLinesBySearch_.value( autoMarkSearchText );
-        logFilteredData_->iterateOverMatches(
-            [ this, &newMarks, &autoMarkedLines ]( LineNumber line ) {
-                if ( !logFilteredData_->lineTypeByLine( line ).testFlag(
-                         AbstractLogData::LineTypeFlags::Mark ) ) {
-                    logFilteredData_->addMark( line );
-                    autoMarkedLines.insert( line.get() );
-                    ++newMarks;
-                }
-                else if ( isAutoMarkedLine( line ) ) {
-                    autoMarkedLines.insert( line.get() );
-                }
-            } );
-
-        if ( !autoMarkSearchText.isEmpty() && !autoMarkedLines.isEmpty() ) {
-            autoMarkedLinesBySearch_[ autoMarkSearchText ] = autoMarkedLines;
-            autoMarkedSearches_.removeAll( autoMarkSearchText );
-            autoMarkedSearches_.push_front( autoMarkSearchText );
-            refreshAutoMarkedSearchButtons();
-        }
-
-        filteredView_->updateData();
-        logMainView_->updateData();
-        overview_.updateData( logData_->getNbLine() );
-        update();
+        const auto newMarks = markCurrentMatchesAsAutoMarked( autoMarkSearchText );
+        refreshViewsAfterMarksChanged();
 
         searchInfoLine_->setPalette( searchInfoLineDefaultPalette_ );
         searchInfoLine_->setText(
@@ -1201,6 +1154,63 @@ void CrawlerWidget::confirmResetAllFrequentSearches()
     refreshFrequentSearchButtons();
 }
 
+CrawlerWidget::AutoMarkedSearchState& CrawlerWidget::currentAutoMarkedSearchState()
+{
+    return autoMarkedSearchStates_[ filteredView_ ];
+}
+
+const CrawlerWidget::AutoMarkedSearchState& CrawlerWidget::currentAutoMarkedSearchState() const
+{
+    static const AutoMarkedSearchState emptyState;
+
+    const auto state = autoMarkedSearchStates_.find( filteredView_ );
+    if ( state == autoMarkedSearchStates_.cend() ) {
+        return emptyState;
+    }
+
+    return state->second;
+}
+
+uint64_t CrawlerWidget::markCurrentMatchesAsAutoMarked( const QString& searchText )
+{
+    if ( searchText.isEmpty() ) {
+        return 0;
+    }
+
+    auto& state = currentAutoMarkedSearchState();
+    uint64_t newMarks = 0;
+    auto autoMarkedLines = state.linesBySearch.value( searchText );
+    logFilteredData_->iterateOverMatches(
+        [ this, &newMarks, &autoMarkedLines ]( LineNumber line ) {
+            if ( !logFilteredData_->lineTypeByLine( line ).testFlag(
+                     AbstractLogData::LineTypeFlags::Mark ) ) {
+                logFilteredData_->addMark( line );
+                autoMarkedLines.insert( line.get() );
+                ++newMarks;
+            }
+            else if ( isAutoMarkedLine( line ) ) {
+                autoMarkedLines.insert( line.get() );
+            }
+        } );
+
+    if ( !autoMarkedLines.isEmpty() ) {
+        state.linesBySearch[ searchText ] = autoMarkedLines;
+        state.searches.removeAll( searchText );
+        state.searches.push_front( searchText );
+        refreshAutoMarkedSearchButtons();
+    }
+
+    return newMarks;
+}
+
+void CrawlerWidget::refreshViewsAfterMarksChanged()
+{
+    filteredView_->updateData();
+    logMainView_->updateData();
+    overview_.updateData( logData_->getNbLine() );
+    update();
+}
+
 void CrawlerWidget::refreshAutoMarkedSearchButtons()
 {
     while ( auto* item = autoMarkedSearchesLayout_->takeAt( 0 ) ) {
@@ -1210,7 +1220,8 @@ void CrawlerWidget::refreshAutoMarkedSearchButtons()
         delete item;
     }
 
-    if ( autoMarkedSearches_.isEmpty() ) {
+    const auto& state = currentAutoMarkedSearchState();
+    if ( state.searches.isEmpty() ) {
         autoMarkedSearchesWidget_->setVisible( false );
         return;
     }
@@ -1222,7 +1233,7 @@ void CrawlerWidget::refreshAutoMarkedSearchButtons()
     autoMarkedSearchesLayout_->addWidget( titleLabel );
 
     const auto maxButtonWidth = visibilityBox_->sizeHint().width();
-    for ( const auto& searchText : autoMarkedSearches_ ) {
+    for ( const auto& searchText : state.searches ) {
         auto* searchItem = new QWidget( autoMarkedSearchesWidget_ );
 
         auto* searchButton = new QToolButton( searchItem );
@@ -1274,7 +1285,8 @@ void CrawlerWidget::refreshAutoMarkedSearchButtons()
 
 bool CrawlerWidget::isAutoMarkedLine( LineNumber line ) const
 {
-    return std::any_of( autoMarkedLinesBySearch_.cbegin(), autoMarkedLinesBySearch_.cend(),
+    const auto& state = currentAutoMarkedSearchState();
+    return std::any_of( state.linesBySearch.cbegin(), state.linesBySearch.cend(),
                         [ line ]( const auto& markedLines ) {
                             return markedLines.contains( line.get() );
                         } );
@@ -1282,7 +1294,8 @@ bool CrawlerWidget::isAutoMarkedLine( LineNumber line ) const
 
 bool CrawlerWidget::hasOtherAutoMarkOwner( LineNumber line, const QString& searchText ) const
 {
-    for ( auto it = autoMarkedLinesBySearch_.cbegin(); it != autoMarkedLinesBySearch_.cend();
+    const auto& state = currentAutoMarkedSearchState();
+    for ( auto it = state.linesBySearch.cbegin(); it != state.linesBySearch.cend();
           ++it ) {
         if ( it.key() != searchText && it.value().contains( line.get() ) ) {
             return true;
@@ -1295,14 +1308,15 @@ bool CrawlerWidget::hasOtherAutoMarkOwner( LineNumber line, const QString& searc
 void CrawlerWidget::removeLineFromAutoMarkedSearches( LineNumber line )
 {
     bool changed = false;
-    for ( auto it = autoMarkedLinesBySearch_.begin(); it != autoMarkedLinesBySearch_.end(); ) {
+    auto& state = currentAutoMarkedSearchState();
+    for ( auto it = state.linesBySearch.begin(); it != state.linesBySearch.end(); ) {
         if ( it.value().remove( line.get() ) > 0 ) {
             changed = true;
         }
 
         if ( it.value().isEmpty() ) {
-            autoMarkedSearches_.removeAll( it.key() );
-            it = autoMarkedLinesBySearch_.erase( it );
+            state.searches.removeAll( it.key() );
+            it = state.linesBySearch.erase( it );
         }
         else {
             ++it;
@@ -1316,8 +1330,9 @@ void CrawlerWidget::removeLineFromAutoMarkedSearches( LineNumber line )
 
 void CrawlerWidget::clearAutoMarkedSearches()
 {
-    autoMarkedSearches_.clear();
-    autoMarkedLinesBySearch_.clear();
+    auto& state = currentAutoMarkedSearchState();
+    state.searches.clear();
+    state.linesBySearch.clear();
 
     if ( autoMarkedSearchesLayout_ != nullptr ) {
         refreshAutoMarkedSearchButtons();
@@ -1326,8 +1341,9 @@ void CrawlerWidget::clearAutoMarkedSearches()
 
 void CrawlerWidget::removeAutoMarkedSearch( const QString& searchText )
 {
-    const auto markedLines = autoMarkedLinesBySearch_.take( searchText );
-    autoMarkedSearches_.removeAll( searchText );
+    auto& state = currentAutoMarkedSearchState();
+    const auto markedLines = state.linesBySearch.take( searchText );
+    state.searches.removeAll( searchText );
 
     for ( const auto& line : markedLines ) {
         const auto lineNumber = LineNumber( line );
@@ -1336,33 +1352,28 @@ void CrawlerWidget::removeAutoMarkedSearch( const QString& searchText )
         }
     }
 
-    filteredView_->updateData();
-    logMainView_->updateData();
-    overview_.updateData( logData_->getNbLine() );
-    update();
+    refreshViewsAfterMarksChanged();
     refreshAutoMarkedSearchButtons();
 }
 
 void CrawlerWidget::removeAllAutoMarkedSearches()
 {
     QSet<LineNumber::UnderlyingType> markedLines;
-    for ( const auto& searchMarkedLines : autoMarkedLinesBySearch_ ) {
+    auto& state = currentAutoMarkedSearchState();
+    for ( const auto& searchMarkedLines : state.linesBySearch ) {
         for ( const auto& line : searchMarkedLines ) {
             markedLines.insert( line );
         }
     }
 
-    autoMarkedSearches_.clear();
-    autoMarkedLinesBySearch_.clear();
+    state.searches.clear();
+    state.linesBySearch.clear();
 
     for ( const auto& line : markedLines ) {
         logFilteredData_->deleteMark( LineNumber( line ) );
     }
 
-    filteredView_->updateData();
-    logMainView_->updateData();
-    overview_.updateData( logData_->getNbLine() );
-    update();
+    refreshViewsAfterMarksChanged();
     refreshAutoMarkedSearchButtons();
 }
 
@@ -1428,6 +1439,7 @@ void CrawlerWidget::setup()
 
     filteredView_ = new FilteredView( logFilteredData_.get(), quickFindPattern_.get() );
     filteredViewsData_[ filteredView_ ] = logFilteredData_;
+    autoMarkedSearchStates_[ filteredView_ ] = {};
     filteredView_->setContentsMargins( 2, 0, 2, 0 );
     filteredView_->allowFollowMode( false );
 
@@ -1795,19 +1807,23 @@ void CrawlerWidget::changeFilteredView( int tabIndex )
 
         logMainView_->useNewFiltering( logFilteredData_.get() );
         changeFilteredViewVisibility( visibilityBox_->currentIndex() );
+        refreshAutoMarkedSearchButtons();
     }
 }
 
 void CrawlerWidget::closeFilteredView( int tabIndex )
 {
-    auto* tabFilteredView = tabbedFilteredView_->widget( tabIndex );
-    connect( tabFilteredView, &QObject::destroyed, this, &CrawlerWidget::filteredViewDestroyed );
-    tabFilteredView->deleteLater();
-}
+    auto* tabFilteredView
+        = qobject_cast<FilteredView*>( tabbedFilteredView_->widget( tabIndex ) );
+    if ( tabFilteredView == nullptr ) {
+        return;
+    }
 
-void CrawlerWidget::filteredViewDestroyed( QObject* view )
-{
-    filteredViewsData_.erase( qobject_cast<FilteredView*>( view ) );
+    connect( tabFilteredView, &QObject::destroyed, this, [ this, tabFilteredView ] {
+        filteredViewsData_.erase( tabFilteredView );
+        autoMarkedSearchStates_.erase( tabFilteredView );
+    } );
+    tabFilteredView->deleteLater();
 }
 
 void CrawlerWidget::saveSplitterSizes() const
