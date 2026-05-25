@@ -49,6 +49,7 @@
 #include <QByteArray>
 #include <QList>
 #include <QObject>
+#include <QRegularExpression>
 #include <QStringList>
 
 #include <KDSignalThrottler.h>
@@ -126,6 +127,7 @@ class LogFilteredData : public AbstractLogData {
     void clearMarks();
     // Get all marked lines
     QList<LineNumber> getMarks() const;
+    void iterateOverMatches( const std::function<void( LineNumber )>& callback ) const;
 
     // Changes what the AbstractLogData returns via its getXLines/getNbLines
     // API.
@@ -185,6 +187,12 @@ class LogFilteredData : public AbstractLogData {
     const LogData* sourceLogData_;
 
     RegularExpressionPattern currentRegExp_;
+    struct MatchingLinePortionRegexpCache {
+        QString pattern;
+        QRegularExpression::PatternOptions options;
+        QRegularExpression regexp;
+    };
+    mutable std::optional<MatchingLinePortionRegexpCache> matchingLinePortionRegexpCache_;
     LineLength maxLength_;
     LineLength maxLengthMarks_;
     // Number of lines of the LogData that has been searched for:

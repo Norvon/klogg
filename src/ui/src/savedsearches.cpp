@@ -19,6 +19,9 @@
 
 // This file implements class SavedSearch
 
+#include <algorithm>
+#include <vector>
+
 #include <QDataStream>
 #include <QSettings>
 
@@ -31,6 +34,7 @@ void SavedSearches::addRecent( const QString& text )
     if ( text.isEmpty() )
         return;
 
+    searchUsageCounts_[ text ] = searchUsageCounts_.value( text, 0 ) + 1;
     savedSearches_.removeAll( text );
     savedSearches_.push_front( text );
 
@@ -40,6 +44,67 @@ void SavedSearches::addRecent( const QString& text )
 QStringList SavedSearches::recentSearches() const
 {
     return savedSearches_;
+}
+
+QStringList SavedSearches::frequentSearches( int limit ) const
+{
+    struct SearchUsage {
+        QString text;
+        int count;
+        int recentIndex;
+    };
+
+    std::vector<SearchUsage> searches;
+    searches.reserve( static_cast<size_t>( savedSearches_.size() ) );
+    for ( auto i = 0; i < savedSearches_.size(); ++i ) {
+        const auto& text = savedSearches_.at( i );
+        const auto usageCount = searchUsageCounts_.value( text, 1 );
+        if ( usageCount > 0 ) {
+            searches.push_back( SearchUsage{ text, usageCount, i } );
+        }
+    }
+
+    std::sort( searches.begin(), searches.end(), []( const auto& lhs, const auto& rhs ) {
+        if ( lhs.count != rhs.count ) {
+            return lhs.count > rhs.count;
+        }
+
+        return lhs.recentIndex < rhs.recentIndex;
+    } );
+
+    QStringList frequent;
+    for ( const auto& search : searches ) {
+        if ( frequent.size() >= limit ) {
+            break;
+        }
+
+        frequent.append( search.text );
+    }
+
+    return frequent;
+}
+
+int SavedSearches::usageCount( const QString& text ) const
+{
+    if ( !savedSearches_.contains( text ) ) {
+        return 0;
+    }
+
+    return searchUsageCounts_.value( text, 1 );
+}
+
+void SavedSearches::resetUsageCount( const QString& text )
+{
+    if ( savedSearches_.contains( text ) ) {
+        searchUsageCounts_[ text ] = 0;
+    }
+}
+
+void SavedSearches::resetAllUsageCounts()
+{
+    for ( const auto& search : savedSearches_ ) {
+        searchUsageCounts_[ search ] = 0;
+    }
 }
 
 int SavedSearches::historySize() const
@@ -56,12 +121,22 @@ void SavedSearches::setHistorySize( int historySize )
 void SavedSearches::clear()
 {
     savedSearches_.clear();
+    searchUsageCounts_.clear();
 }
 
 void SavedSearches::trim()
 {
     while ( savedSearches_.size() > historySize_ )
         savedSearches_.pop_back();
+
+    for ( auto it = searchUsageCounts_.begin(); it != searchUsageCounts_.end(); ) {
+        if ( !savedSearches_.contains( it.key() ) ) {
+            it = searchUsageCounts_.erase( it );
+        }
+        else {
+            ++it;
+        }
+    }
 }
 
 //
@@ -79,6 +154,7 @@ void SavedSearches::saveToStorage( QSettings& settings ) const
     for ( int i = 0; i < savedSearches_.size(); ++i ) {
         settings.setArrayIndex( i );
         settings.setValue( "string", savedSearches_.at( i ) );
+        settings.setValue( "usageCount", searchUsageCounts_.value( savedSearches_.at( i ), 1 ) );
     }
     settings.endArray();
     settings.setValue( "historySize", historySize_ );
@@ -90,6 +166,7 @@ void SavedSearches::retrieveFromStorage( QSettings& settings )
     LOG_DEBUG << "SavedSearches::retrieveFromStorage";
 
     savedSearches_.clear();
+    searchUsageCounts_.clear();
 
     if ( settings.contains( "SavedSearches/version" ) ) {
         settings.beginGroup( "SavedSearches" );
@@ -99,6 +176,7 @@ void SavedSearches::retrieveFromStorage( QSettings& settings )
                 settings.setArrayIndex( i );
                 QString search = settings.value( "string" ).toString();
                 savedSearches_.append( search );
+                searchUsageCounts_[ search ] = settings.value( "usageCount", 1 ).toInt();
             }
             settings.endArray();
             historySize_ = settings.value( "historySize", MaxNumberOfRecentSearches ).toInt();

@@ -21,6 +21,7 @@
 #define SAVEDSEARCHES_H
 
 #include <QMetaType>
+#include <QHash>
 #include <QString>
 #include <QStringList>
 
@@ -40,6 +41,10 @@ class SavedSearches final : public Persistable<SavedSearches, session_settings> 
 
     // Returns a list of recent searches (newer first)
     QStringList recentSearches() const;
+    QStringList frequentSearches( int limit ) const;
+    int usageCount( const QString& text ) const;
+    void resetUsageCount( const QString& text );
+    void resetAllUsageCounts();
 
     int historySize() const;
     void setHistorySize(int historySize);
@@ -60,6 +65,7 @@ class SavedSearches final : public Persistable<SavedSearches, session_settings> 
 
     int historySize_ = MaxNumberOfRecentSearches;
     QStringList savedSearches_;
+    QHash<QString, int> searchUsageCounts_;
 };
 
 #endif

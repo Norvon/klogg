@@ -153,6 +153,7 @@ void LogFilteredData::clearSearch( bool dropCache )
     interruptSearch();
 
     currentRegExp_ = {};
+    matchingLinePortionRegexpCache_.reset();
     matching_lines_ = {};
     marks_and_matches_ = marks_;
     maxLength_ = 0_length;
@@ -195,7 +196,14 @@ std::optional<std::pair<LineColumn, LineLength>> LogFilteredData::getMatchingLin
         options |= QRegularExpression::CaseInsensitiveOption;
     }
 
-    const QRegularExpression regexp( pattern, options );
+    if ( !matchingLinePortionRegexpCache_.has_value()
+         || matchingLinePortionRegexpCache_->pattern != pattern
+         || matchingLinePortionRegexpCache_->options != options ) {
+        matchingLinePortionRegexpCache_ = MatchingLinePortionRegexpCache{
+            pattern, options, QRegularExpression( pattern, options ) };
+    }
+
+    const auto& regexp = matchingLinePortionRegexpCache_->regexp;
     if ( !regexp.isValid() ) {
         return {};
     }
@@ -269,6 +277,19 @@ void LogFilteredData::iterateOverLines( const std::function<void( LineNumber )>&
     using CallbackFn = std::function<void( LineNumber )>;
     const auto& currentResults = currentResultArray();
     currentResults.iterate(
+        []( uint64_t line, void* context ) -> bool {
+            auto* callbackFn = static_cast<CallbackFn*>( context );
+            callbackFn->operator()( LineNumber( line ) );
+            return true;
+        },
+        static_cast<void*>( const_cast<CallbackFn*>( &callback ) ) );
+}
+
+void LogFilteredData::iterateOverMatches(
+    const std::function<void( LineNumber )>& callback ) const
+{
+    using CallbackFn = std::function<void( LineNumber )>;
+    matching_lines_.iterate(
         []( uint64_t line, void* context ) -> bool {
             auto* callbackFn = static_cast<CallbackFn*>( context );
             callbackFn->operator()( LineNumber( line ) );

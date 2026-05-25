@@ -266,6 +266,11 @@
     </message>
     <message>
         <location filename="../../ui/src/crawlerwidget.cpp" line="1113"/>
+        <source>Mark current search results</source>
+        <translation>标记当前搜索结果</translation>
+    </message>
+    <message>
+        <location filename="../../ui/src/crawlerwidget.cpp" line="1113"/>
         <source>Keep Results</source>
         <translation>保留结果</translation>
     </message>
@@ -273,6 +278,56 @@
         <location filename="../../ui/src/crawlerwidget.cpp" line="1115"/>
         <source>Keep these results and show subsequent results in a new window</source>
         <translation>保留这些结果，并在新窗口显示后续结果</translation>
+    </message>
+    <message>
+        <location filename="../../ui/src/crawlerwidget.cpp" line="581"/>
+        <source>%1 matches found, %2 new marks added</source>
+        <translation>找到%1个匹配，新增%2个标记</translation>
+    </message>
+    <message>
+        <location filename="../../ui/src/crawlerwidget.cpp" line="1008"/>
+        <source>Frequent searches:</source>
+        <translation>常用搜索：</translation>
+    </message>
+    <message>
+        <location filename="../../ui/src/crawlerwidget.cpp" line="1026"/>
+        <source>Clear usage count</source>
+        <translation>清空使用次数</translation>
+    </message>
+    <message>
+        <location filename="../../ui/src/crawlerwidget.cpp" line="1026"/>
+        <source>Clear all</source>
+        <translation>清除所有</translation>
+    </message>
+    <message>
+        <location filename="../../ui/src/crawlerwidget.cpp" line="1026"/>
+        <source>Clear all frequent search usage counts</source>
+        <translation>清除所有常用搜索的使用次数</translation>
+    </message>
+    <message>
+        <location filename="../../ui/src/crawlerwidget.cpp" line="1026"/>
+        <source>Clear all frequent search usage counts?</source>
+        <translation>清除所有常用搜索的使用次数？</translation>
+    </message>
+    <message>
+        <location filename="../../ui/src/crawlerwidget.cpp" line="1115"/>
+        <source>Marked searches:</source>
+        <translation>已标记：</translation>
+    </message>
+    <message>
+        <location filename="../../ui/src/crawlerwidget.cpp" line="1138"/>
+        <source>Remove marks</source>
+        <translation>移除标记</translation>
+    </message>
+    <message>
+        <location filename="../../ui/src/crawlerwidget.cpp" line="1138"/>
+        <source>Remove all marked searches</source>
+        <translation>移除所有已标记搜索</translation>
+    </message>
+    <message>
+        <location filename="../../ui/src/crawlerwidget.cpp" line="1138"/>
+        <source>Remove all marked searches?</source>
+        <translation>移除所有已标记搜索？</translation>
     </message>
     <message>
         <location filename="../../ui/src/crawlerwidget.cpp" line="1623"/>

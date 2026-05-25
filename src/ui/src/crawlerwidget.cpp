@@ -49,15 +49,18 @@
 #include <algorithm>
 #include <cassert>
 #include <chrono>
+#include <cstdint>
 
 #include <QAction>
 #include <QApplication>
 #include <QCompleter>
+#include <QFontMetrics>
 #include <QInputDialog>
 #include <QJsonDocument>
 #include <QKeySequence>
 #include <QLineEdit>
 #include <QListView>
+#include <QMessageBox>
 #include <QScreen>
 #include <QShortcut>
 #include <QStandardItemModel>
@@ -313,6 +316,7 @@ void CrawlerWidget::reload()
     constexpr auto DropCache = true;
     logFilteredData_->clearSearch( DropCache );
     logFilteredData_->clearMarks();
+    clearAutoMarkedSearches();
     filteredView_->updateData();
     printSearchInfoMessage();
 
@@ -461,9 +465,54 @@ void CrawlerWidget::updatePredefinedFiltersWidget()
                                              booleanButton_->isChecked() );
 }
 
+void CrawlerWidget::markCurrentSearchResults()
+{
+    if ( logFilteredData_->getNbMatches() == 0_lcount ) {
+        return;
+    }
+
+    const auto searchText = searchLineEdit_->currentText();
+    uint64_t newMarks = 0;
+    auto autoMarkedLines = autoMarkedLinesBySearch_.value( searchText );
+    logFilteredData_->iterateOverMatches(
+        [ this, &newMarks, &autoMarkedLines ]( LineNumber line ) {
+            if ( !logFilteredData_->lineTypeByLine( line ).testFlag(
+                     AbstractLogData::LineTypeFlags::Mark ) ) {
+                logFilteredData_->addMark( line );
+                autoMarkedLines.insert( line.get() );
+                ++newMarks;
+            }
+            else if ( isAutoMarkedLine( line ) ) {
+                autoMarkedLines.insert( line.get() );
+            }
+        } );
+
+    if ( !searchText.isEmpty() && !autoMarkedLines.isEmpty() ) {
+        autoMarkedLinesBySearch_[ searchText ] = autoMarkedLines;
+        autoMarkedSearches_.removeAll( searchText );
+        autoMarkedSearches_.push_front( searchText );
+        refreshAutoMarkedSearchButtons();
+    }
+
+    filteredView_->updateData();
+    logMainView_->updateData();
+    overview_.updateData( logData_->getNbLine() );
+    update();
+
+    searchInfoLine_->setPalette( searchInfoLineDefaultPalette_ );
+    searchInfoLine_->setText( tr( "%1 matches found, %2 new marks added" )
+                                  .arg( logFilteredData_->getNbMatches().get() )
+                                  .arg( newMarks ) );
+    searchInfoLine_->show();
+    filteredView_->setFocus( Qt::OtherFocusReason );
+}
+
 void CrawlerWidget::stopSearch()
 {
     logFilteredData_->interruptSearch();
+    markSearchResultsButton_->setEnabled( false );
+    pendingAutoMarkSearch_ = false;
+    pendingAutoMarkSearchText_.clear();
     searchState_.stopSearch();
     printSearchInfoMessage();
 }
@@ -479,6 +528,7 @@ void CrawlerWidget::clearSearchHistory()
     searches.save();
 
     searchLineCompleter_->setModel( new QStringListModel( {}, searchLineCompleter_ ) );
+    refreshFrequentSearchButtons();
 }
 
 void CrawlerWidget::editSearchHistory()
@@ -538,8 +588,10 @@ void CrawlerWidget::updateFilteredView( LinesCount nbMatches, int progress,
         stopButton_->hide();
         searchButton_->show();
         clearButton_->show();
+        markSearchResultsButton_->setEnabled( nbMatches > 0_lcount );
     }
     else {
+        markSearchResultsButton_->setEnabled( false );
         // Search in progress
         // We ignore 0% and 100% to avoid a flash when the search is very short
         if ( progress > 0 ) {
@@ -575,6 +627,44 @@ void CrawlerWidget::updateFilteredView( LinesCount nbMatches, int progress,
         update();
     }
 
+    if ( progress == 100 && pendingAutoMarkSearch_ ) {
+        pendingAutoMarkSearch_ = false;
+        const auto autoMarkSearchText = pendingAutoMarkSearchText_;
+        pendingAutoMarkSearchText_.clear();
+
+        uint64_t newMarks = 0;
+        auto autoMarkedLines = autoMarkedLinesBySearch_.value( autoMarkSearchText );
+        logFilteredData_->iterateOverMatches(
+            [ this, &newMarks, &autoMarkedLines ]( LineNumber line ) {
+                if ( !logFilteredData_->lineTypeByLine( line ).testFlag(
+                         AbstractLogData::LineTypeFlags::Mark ) ) {
+                    logFilteredData_->addMark( line );
+                    autoMarkedLines.insert( line.get() );
+                    ++newMarks;
+                }
+                else if ( isAutoMarkedLine( line ) ) {
+                    autoMarkedLines.insert( line.get() );
+                }
+            } );
+
+        if ( !autoMarkSearchText.isEmpty() && !autoMarkedLines.isEmpty() ) {
+            autoMarkedLinesBySearch_[ autoMarkSearchText ] = autoMarkedLines;
+            autoMarkedSearches_.removeAll( autoMarkSearchText );
+            autoMarkedSearches_.push_front( autoMarkSearchText );
+            refreshAutoMarkedSearchButtons();
+        }
+
+        filteredView_->updateData();
+        logMainView_->updateData();
+        overview_.updateData( logData_->getNbLine() );
+        update();
+
+        searchInfoLine_->setPalette( searchInfoLineDefaultPalette_ );
+        searchInfoLine_->setText(
+            tr( "%1 matches found, %2 new marks added" ).arg( nbMatches.get() ).arg( newMarks ) );
+        searchInfoLine_->show();
+    }
+
     // Try to restore the filtered window selection close to where it was
     // only for full searches to avoid disconnecting follow mode!
     if ( ( progress == 100 ) && ( initialPosition == searchStartLine_ )
@@ -585,6 +675,10 @@ void CrawlerWidget::updateFilteredView( LinesCount nbMatches, int progress,
                   << currenLineIndex;
         filteredView_->selectAndDisplayLine( currenLineIndex );
         filteredView_->setSearchLimits( searchStartLine_, searchEndLine_ );
+
+        if ( nbMatches > 0_lcount ) {
+            filteredView_->setFocus( Qt::OtherFocusReason );
+        }
     }
 }
 
@@ -635,6 +729,7 @@ void CrawlerWidget::markLinesFromMain( const klogg::vector<LineNumber>& lines )
     if ( !markAdded ) {
         for ( const auto& line : alreadyMarkedLines ) {
             logFilteredData_->toggleMark( line );
+            removeLineFromAutoMarkedSearches( line );
         }
     }
 
@@ -785,6 +880,7 @@ void CrawlerWidget::fileChangedHandler( MonitoredFileStatus status )
     if ( status == MonitoredFileStatus::Truncated ) {
         // Clear all marks (TODO offer the option to keep them)
         logFilteredData_->clearMarks();
+        clearAutoMarkedSearches();
         if ( !searchInfoLine_->text().isEmpty() ) {
             // Invalidate the search
             constexpr auto DropCache = true;
@@ -837,6 +933,7 @@ void CrawlerWidget::resetStateOnSearchPatternChanges()
 {
     // We suspend auto-refresh
 
+    markSearchResultsButton_->setEnabled( false );
     searchState_.changeExpression();
     printSearchInfoMessage( logFilteredData_->getNbMatches() );
 }
@@ -964,6 +1061,319 @@ void CrawlerWidget::setSearchPattern( const QString& searchPattern )
 
     if ( Configuration::get().autoRunSearchOnPatternChange() ) {
         dispatchToMainThread( [ this ] { startNewSearch(); } );
+    }
+}
+
+void CrawlerWidget::refreshFrequentSearchButtons()
+{
+    while ( auto* item = frequentSearchesLayout_->takeAt( 0 ) ) {
+        if ( auto* widget = item->widget() ) {
+            widget->deleteLater();
+        }
+        delete item;
+    }
+
+    const auto maxButtonWidth = visibilityBox_->sizeHint().width();
+    const auto frequentSearches = savedSearches_->frequentSearches( 10 );
+    if ( !frequentSearches.isEmpty() ) {
+        auto* titleLabel = new QLabel( tr( "Frequent searches:" ), frequentSearchesWidget_ );
+        titleLabel->setSizePolicy( QSizePolicy::Maximum, QSizePolicy::Minimum );
+        frequentSearchesLayout_->addWidget( titleLabel );
+    }
+
+    for ( const auto& searchText : frequentSearches ) {
+        auto* searchItem = new QWidget( frequentSearchesWidget_ );
+
+        auto* searchButton = new QToolButton( searchItem );
+        searchButton->setText( elideFrequentSearchText( searchText, maxButtonWidth - 14 ) );
+        searchButton->setToolTip( QStringLiteral( "%1 (%2)" )
+                                      .arg( searchText )
+                                      .arg( savedSearches_->usageCount( searchText ) ) );
+        searchButton->setAutoRaise( true );
+        searchButton->setContentsMargins( 2, 2, 2, 2 );
+
+        const auto buttonHeight = searchButton->sizeHint().height();
+        searchItem->setFixedSize( maxButtonWidth, buttonHeight );
+        searchItem->setSizePolicy( QSizePolicy::Fixed, QSizePolicy::Fixed );
+        searchButton->setFixedSize( maxButtonWidth, buttonHeight );
+        searchButton->setSizePolicy( QSizePolicy::Fixed, QSizePolicy::Fixed );
+
+        auto* resetButton = new QToolButton( searchItem );
+        resetButton->setText( QStringLiteral( "x" ) );
+        resetButton->setToolTip( tr( "Clear usage count" ) );
+        resetButton->setAutoRaise( true );
+        resetButton->setFixedSize( 14, 14 );
+        resetButton->move( maxButtonWidth - resetButton->width(), 0 );
+        resetButton->raise();
+
+        connect( searchButton, &QToolButton::clicked, this,
+                 [ this, searchText ] { applyFrequentSearch( searchText ); } );
+        connect( resetButton, &QToolButton::clicked, this,
+                 [ this, searchText ] { resetFrequentSearchUsage( searchText ); } );
+
+        frequentSearchesLayout_->addWidget( searchItem );
+    }
+
+    if ( !frequentSearches.isEmpty() ) {
+        auto* clearAllButton = new QToolButton( frequentSearchesWidget_ );
+        clearAllButton->setText( tr( "Clear all" ) );
+        clearAllButton->setToolTip( tr( "Clear all frequent search usage counts" ) );
+        clearAllButton->setAutoRaise( true );
+
+        connect( clearAllButton, &QToolButton::clicked, this,
+                 &CrawlerWidget::confirmResetAllFrequentSearches );
+
+        frequentSearchesLayout_->addWidget( clearAllButton );
+    }
+
+    frequentSearchesLayout_->addStretch();
+}
+
+QString CrawlerWidget::elideFrequentSearchText( const QString& text, int maxWidth ) const
+{
+    static constexpr auto Ellipsis = "...";
+    const auto availableWidth = std::max( maxWidth - 12, 1 );
+    const QFontMetrics metrics( font() );
+
+    if ( metrics.horizontalAdvance( text ) <= availableWidth ) {
+        return text;
+    }
+
+    if ( metrics.horizontalAdvance( Ellipsis ) >= availableWidth ) {
+        return Ellipsis;
+    }
+
+    auto leftLength = ( text.size() + 1 ) / 2;
+    auto rightLength = text.size() - leftLength;
+    while ( leftLength + rightLength > 0 ) {
+        const auto candidate = text.left( leftLength ) + Ellipsis + text.right( rightLength );
+        if ( metrics.horizontalAdvance( candidate ) <= availableWidth ) {
+            return candidate;
+        }
+
+        if ( leftLength > rightLength ) {
+            --leftLength;
+        }
+        else {
+            --rightLength;
+        }
+    }
+
+    return Ellipsis;
+}
+
+void CrawlerWidget::applyFrequentSearch( const QString& searchText )
+{
+    if ( searchText.isEmpty() ) {
+        return;
+    }
+
+    pendingAutoMarkSearch_ = true;
+    pendingAutoMarkSearchText_ = searchText;
+    searchLineEdit_->setEditText( searchText );
+    updatePredefinedFiltersWidget();
+    searchLineEdit_->lineEdit()->setFocus();
+
+    startNewSearch();
+}
+
+void CrawlerWidget::resetFrequentSearchUsage( const QString& searchText )
+{
+    auto& searches = SavedSearches::getSynced();
+    savedSearches_->resetUsageCount( searchText );
+    searches.save();
+    refreshFrequentSearchButtons();
+}
+
+void CrawlerWidget::confirmResetAllFrequentSearches()
+{
+    const auto answer = QMessageBox::question(
+        this, tr( "Clear all" ), tr( "Clear all frequent search usage counts?" ),
+        QMessageBox::Yes | QMessageBox::No, QMessageBox::No );
+
+    if ( answer != QMessageBox::Yes ) {
+        return;
+    }
+
+    auto& searches = SavedSearches::getSynced();
+    savedSearches_->resetAllUsageCounts();
+    searches.save();
+    refreshFrequentSearchButtons();
+}
+
+void CrawlerWidget::refreshAutoMarkedSearchButtons()
+{
+    while ( auto* item = autoMarkedSearchesLayout_->takeAt( 0 ) ) {
+        if ( auto* widget = item->widget() ) {
+            widget->deleteLater();
+        }
+        delete item;
+    }
+
+    if ( autoMarkedSearches_.isEmpty() ) {
+        autoMarkedSearchesWidget_->setVisible( false );
+        return;
+    }
+
+    autoMarkedSearchesWidget_->setVisible( true );
+
+    auto* titleLabel = new QLabel( tr( "Marked searches:" ), autoMarkedSearchesWidget_ );
+    titleLabel->setSizePolicy( QSizePolicy::Maximum, QSizePolicy::Minimum );
+    autoMarkedSearchesLayout_->addWidget( titleLabel );
+
+    const auto maxButtonWidth = visibilityBox_->sizeHint().width();
+    for ( const auto& searchText : autoMarkedSearches_ ) {
+        auto* searchItem = new QWidget( autoMarkedSearchesWidget_ );
+
+        auto* searchButton = new QToolButton( searchItem );
+        searchButton->setText( elideFrequentSearchText( searchText, maxButtonWidth - 14 ) );
+        searchButton->setToolTip( searchText );
+        searchButton->setAutoRaise( true );
+        searchButton->setContentsMargins( 2, 2, 2, 2 );
+
+        const auto buttonHeight = searchButton->sizeHint().height();
+        searchItem->setFixedSize( maxButtonWidth, buttonHeight );
+        searchItem->setSizePolicy( QSizePolicy::Fixed, QSizePolicy::Fixed );
+        searchButton->setFixedSize( maxButtonWidth, buttonHeight );
+        searchButton->setSizePolicy( QSizePolicy::Fixed, QSizePolicy::Fixed );
+
+        auto* removeButton = new QToolButton( searchItem );
+        removeButton->setText( QStringLiteral( "x" ) );
+        removeButton->setToolTip( tr( "Remove marks" ) );
+        removeButton->setAutoRaise( true );
+        removeButton->setFixedSize( 14, 14 );
+        removeButton->move( maxButtonWidth - removeButton->width(), 0 );
+        removeButton->raise();
+
+        connect( searchButton, &QToolButton::clicked, this, [ this, searchText ] {
+            pendingAutoMarkSearch_ = false;
+            pendingAutoMarkSearchText_.clear();
+            searchLineEdit_->setEditText( searchText );
+            updatePredefinedFiltersWidget();
+            searchLineEdit_->lineEdit()->setFocus();
+            startNewSearch();
+        } );
+        connect( removeButton, &QToolButton::clicked, this,
+                 [ this, searchText ] { removeAutoMarkedSearch( searchText ); } );
+
+        autoMarkedSearchesLayout_->addWidget( searchItem );
+    }
+
+    auto* clearAllButton = new QToolButton( autoMarkedSearchesWidget_ );
+    clearAllButton->setText( tr( "Clear all" ) );
+    clearAllButton->setToolTip( tr( "Remove all marked searches" ) );
+    clearAllButton->setAutoRaise( true );
+
+    connect( clearAllButton, &QToolButton::clicked, this,
+             &CrawlerWidget::confirmRemoveAllAutoMarkedSearches );
+
+    autoMarkedSearchesLayout_->addWidget( clearAllButton );
+
+    autoMarkedSearchesLayout_->addStretch();
+}
+
+bool CrawlerWidget::isAutoMarkedLine( LineNumber line ) const
+{
+    return std::any_of( autoMarkedLinesBySearch_.cbegin(), autoMarkedLinesBySearch_.cend(),
+                        [ line ]( const auto& markedLines ) {
+                            return markedLines.contains( line.get() );
+                        } );
+}
+
+bool CrawlerWidget::hasOtherAutoMarkOwner( LineNumber line, const QString& searchText ) const
+{
+    for ( auto it = autoMarkedLinesBySearch_.cbegin(); it != autoMarkedLinesBySearch_.cend();
+          ++it ) {
+        if ( it.key() != searchText && it.value().contains( line.get() ) ) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+void CrawlerWidget::removeLineFromAutoMarkedSearches( LineNumber line )
+{
+    bool changed = false;
+    for ( auto it = autoMarkedLinesBySearch_.begin(); it != autoMarkedLinesBySearch_.end(); ) {
+        if ( it.value().remove( line.get() ) > 0 ) {
+            changed = true;
+        }
+
+        if ( it.value().isEmpty() ) {
+            autoMarkedSearches_.removeAll( it.key() );
+            it = autoMarkedLinesBySearch_.erase( it );
+        }
+        else {
+            ++it;
+        }
+    }
+
+    if ( changed ) {
+        refreshAutoMarkedSearchButtons();
+    }
+}
+
+void CrawlerWidget::clearAutoMarkedSearches()
+{
+    autoMarkedSearches_.clear();
+    autoMarkedLinesBySearch_.clear();
+
+    if ( autoMarkedSearchesLayout_ != nullptr ) {
+        refreshAutoMarkedSearchButtons();
+    }
+}
+
+void CrawlerWidget::removeAutoMarkedSearch( const QString& searchText )
+{
+    const auto markedLines = autoMarkedLinesBySearch_.take( searchText );
+    autoMarkedSearches_.removeAll( searchText );
+
+    for ( const auto& line : markedLines ) {
+        const auto lineNumber = LineNumber( line );
+        if ( !hasOtherAutoMarkOwner( lineNumber, searchText ) ) {
+            logFilteredData_->deleteMark( lineNumber );
+        }
+    }
+
+    filteredView_->updateData();
+    logMainView_->updateData();
+    overview_.updateData( logData_->getNbLine() );
+    update();
+    refreshAutoMarkedSearchButtons();
+}
+
+void CrawlerWidget::removeAllAutoMarkedSearches()
+{
+    QSet<LineNumber::UnderlyingType> markedLines;
+    for ( const auto& searchMarkedLines : autoMarkedLinesBySearch_ ) {
+        for ( const auto& line : searchMarkedLines ) {
+            markedLines.insert( line );
+        }
+    }
+
+    autoMarkedSearches_.clear();
+    autoMarkedLinesBySearch_.clear();
+
+    for ( const auto& line : markedLines ) {
+        logFilteredData_->deleteMark( LineNumber( line ) );
+    }
+
+    filteredView_->updateData();
+    logMainView_->updateData();
+    overview_.updateData( logData_->getNbLine() );
+    update();
+    refreshAutoMarkedSearchButtons();
+}
+
+void CrawlerWidget::confirmRemoveAllAutoMarkedSearches()
+{
+    const auto answer = QMessageBox::question(
+        this, tr( "Remove marks" ), tr( "Remove all marked searches?" ),
+        QMessageBox::Yes | QMessageBox::No, QMessageBox::No );
+
+    if ( answer == QMessageBox::Yes ) {
+        removeAllAutoMarkedSearches();
     }
 }
 
@@ -1154,6 +1564,13 @@ void CrawlerWidget::setup()
     searchButton_->setAutoRaise( true );
     searchButton_->setContentsMargins( 2, 2, 2, 2 );
 
+    markSearchResultsButton_ = new QToolButton();
+    markSearchResultsButton_->setToolTip( tr( "Mark current search results" ) );
+    markSearchResultsButton_->setAutoRaise( true );
+    markSearchResultsButton_->setEnabled( false );
+    markSearchResultsButton_->setFocusPolicy( Qt::NoFocus );
+    markSearchResultsButton_->setContentsMargins( 2, 2, 2, 2 );
+
     keepSearchResultsButton_ = new QToolButton();
     keepSearchResultsButton_->setText( tr( "Keep Results" ) );
     keepSearchResultsButton_->setToolTip(
@@ -1169,6 +1586,18 @@ void CrawlerWidget::setup()
 
     predefinedFilters_ = new PredefinedFiltersComboBox( this );
 
+    frequentSearchesWidget_ = new QWidget( bottomWindow );
+    frequentSearchesLayout_ = new QHBoxLayout( frequentSearchesWidget_ );
+    frequentSearchesLayout_->setContentsMargins( 2, 0, 2, 0 );
+    frequentSearchesLayout_->setSpacing( 4 );
+    frequentSearchesLayout_->addStretch();
+
+    autoMarkedSearchesWidget_ = new QWidget( bottomWindow );
+    autoMarkedSearchesLayout_ = new QHBoxLayout( autoMarkedSearchesWidget_ );
+    autoMarkedSearchesLayout_->setContentsMargins( 2, 0, 2, 0 );
+    autoMarkedSearchesLayout_->setSpacing( 4 );
+    autoMarkedSearchesLayout_->addStretch();
+
     auto* searchLineLayout = new QHBoxLayout;
     searchLineLayout->setContentsMargins( 2, 2, 2, 2 );
 
@@ -1179,6 +1608,7 @@ void CrawlerWidget::setup()
     searchLineLayout->addWidget( booleanButton_ );
     searchLineLayout->addWidget( searchRefreshButton_ );
     searchLineLayout->addWidget( predefinedFilters_ );
+    searchLineLayout->addWidget( markSearchResultsButton_ );
     searchLineLayout->addWidget( searchLineEdit_ );
     searchLineLayout->addWidget( clearButton_ );
     searchLineLayout->addWidget( searchButton_ );
@@ -1194,7 +1624,9 @@ void CrawlerWidget::setup()
     tabbedFilteredView_->setTabBarAutoHide( true );
 
     auto* bottomMainLayout = new QVBoxLayout;
+    bottomMainLayout->addWidget( frequentSearchesWidget_ );
     bottomMainLayout->addLayout( searchLineLayout );
+    bottomMainLayout->addWidget( autoMarkedSearchesWidget_ );
     bottomMainLayout->addWidget( tabbedFilteredView_ );
     bottomMainLayout->setContentsMargins( 2, 2, 2, 2 );
     bottomWindow->setLayout( bottomMainLayout );
@@ -1242,6 +1674,8 @@ void CrawlerWidget::setup()
     connect( editSearchHistoryAction, &QAction::triggered, this,
              &CrawlerWidget::editSearchHistory );
     connect( searchButton_, &QToolButton::clicked, this, &CrawlerWidget::startNewSearch );
+    connect( markSearchResultsButton_, &QToolButton::clicked, this,
+             &CrawlerWidget::markCurrentSearchResults );
     connect( stopButton_, &QToolButton::clicked, this, &CrawlerWidget::stopSearch );
     connect( clearButton_, &QToolButton::clicked, searchLineEdit_, &QComboBox::clearEditText );
 
@@ -1343,6 +1777,8 @@ void CrawlerWidget::setup()
         encodingMib_ = defaultEncodingMib;
     }
     updatePredefinedFiltersWidget();
+    refreshFrequentSearchButtons();
+    refreshAutoMarkedSearchButtons();
 }
 
 void CrawlerWidget::changeFilteredView( int tabIndex )
@@ -1401,10 +1837,17 @@ void CrawlerWidget::changeFontSize( bool increase )
         currentSize = std::prev( currentSize );
     }
 
-    if ( currentSize != availableSizes.cend() ) {
-        newFont.setPointSize( *currentSize );
-        updateViewsFont( newFont );
+    if ( currentSize == availableSizes.cend() || *currentSize == fontInfo.pointSize() ) {
+        return;
     }
+
+    newFont.setPointSize( *currentSize );
+
+    auto& config = Configuration::get();
+    config.setMainFont( newFont );
+    config.save();
+
+    updateViewsFont( configuredViewFont() );
 }
 
 void CrawlerWidget::resetFontSize()
@@ -1637,6 +2080,7 @@ void CrawlerWidget::loadIcons()
     booleanButton_->setIcon( iconLoader_.load( "icons8-venn-diagram" ) );
     clearButton_->setIcon( iconLoader_.load( "icons8-delete" ) );
     searchButton_->setIcon( iconLoader_.load( "icons8-search" ) );
+    markSearchResultsButton_->setIcon( iconLoader_.load( "icons8-star-filled" ) );
     keepSearchResultsButton_->setIcon( iconLoader_.load( "icons8-lock" ) );
     matchCaseButton_->setIcon( iconLoader_.load( "icons8-font-size" ) );
     stopButton_->setIcon( iconLoader_.load( "icons8-close-window" ) );
@@ -1660,6 +2104,7 @@ void CrawlerWidget::replaceCurrentSearch( const QString& searchText )
     QApplication::processEvents( QEventLoop::ExcludeUserInputEvents );
 
     nbMatches_ = 0_lcount;
+    markSearchResultsButton_->setEnabled( false );
 
     // Switch to "Marks and matches" view when in "Marks" view
     using VisibilityFlags = LogFilteredData::VisibilityFlags;
@@ -1699,6 +2144,8 @@ void CrawlerWidget::replaceCurrentSearch( const QString& searchText )
             filteredView_->setSearchPattern( regexpPattern );
         }
         else {
+            pendingAutoMarkSearch_ = false;
+            pendingAutoMarkSearchText_.clear();
             // The regexp is wrong
             logFilteredData_->clearSearch();
             filteredView_->updateData();
@@ -1723,6 +2170,8 @@ void CrawlerWidget::replaceCurrentSearch( const QString& searchText )
         }
     }
     else {
+        pendingAutoMarkSearch_ = false;
+        pendingAutoMarkSearchText_.clear();
         searchState_.resetState();
         printSearchInfoMessage();
     }
@@ -1742,6 +2191,7 @@ void CrawlerWidget::updateSearchCombo()
     searchLineEdit_->lineEdit()->setText( text );
 
     searchLineCompleter_->setModel( new QStringListModel( searchHistory, searchLineCompleter_ ) );
+    refreshFrequentSearchButtons();
 }
 
 // Print the search info message.

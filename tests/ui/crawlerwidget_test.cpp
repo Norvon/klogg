@@ -24,6 +24,7 @@
 #include <QTemporaryFile>
 #include <QTest>
 #include <QTimer>
+#include <QToolButton>
 #include <qglobal.h>
 #include <qnamespace.h>
 #include <qtestmouse.h>
@@ -87,6 +88,11 @@ struct CrawlerWidget::access_by<CrawlerWidgetPrivate> {
         return crawler->logFilteredData_->getNbLine();
     }
 
+    LinesCount getMarksCount()
+    {
+        return crawler->logFilteredData_->getNbMarks();
+    }
+
     void selectAllInMainView()
     {
         crawler->logMainView_->selectAll();
@@ -145,6 +151,133 @@ struct CrawlerWidget::access_by<CrawlerWidgetPrivate> {
         waitUiState( [ & ]() { return crawler->stopButton_->isHidden(); } );
     }
 
+    void markCurrentSearchResults()
+    {
+        REQUIRE( crawler->markSearchResultsButton_->isEnabled() );
+
+        QTest::mouseClick( crawler->markSearchResultsButton_, Qt::LeftButton );
+    }
+
+    QToolButton* frequentSearchButton( int valueIndex ) const
+    {
+        auto currentValueIndex = 0;
+        for ( auto itemIndex = 0; itemIndex < crawler->frequentSearchesLayout_->count();
+              ++itemIndex ) {
+            auto* widget = crawler->frequentSearchesLayout_->itemAt( itemIndex )->widget();
+            auto* button = widget ? widget->findChild<QToolButton*>() : nullptr;
+            if ( button ) {
+                if ( currentValueIndex == valueIndex ) {
+                    return button;
+                }
+                ++currentValueIndex;
+            }
+        }
+
+        return nullptr;
+    }
+
+    QToolButton* frequentSearchButtonByTooltip( const QString& tooltip ) const
+    {
+        for ( auto itemIndex = 0; itemIndex < crawler->frequentSearchesLayout_->count();
+              ++itemIndex ) {
+            auto* widget = crawler->frequentSearchesLayout_->itemAt( itemIndex )->widget();
+            auto* button = widget ? widget->findChild<QToolButton*>() : nullptr;
+            if ( button && button->toolTip() == tooltip ) {
+                return button;
+            }
+        }
+
+        return nullptr;
+    }
+
+    int frequentSearchButtonCount() const
+    {
+        auto count = 0;
+        for ( auto itemIndex = 0; itemIndex < crawler->frequentSearchesLayout_->count();
+              ++itemIndex ) {
+            auto* widget = crawler->frequentSearchesLayout_->itemAt( itemIndex )->widget();
+            auto* button = widget ? widget->findChild<QToolButton*>() : nullptr;
+            if ( button ) {
+                ++count;
+            }
+        }
+
+        return count;
+    }
+
+    QString frequentSearchText( int valueIndex ) const
+    {
+        const auto* button = frequentSearchButton( valueIndex );
+        return button ? button->text() : QString{};
+    }
+
+    QString frequentSearchTooltip( int valueIndex ) const
+    {
+        const auto* button = frequentSearchButton( valueIndex );
+        return button ? button->toolTip() : QString{};
+    }
+
+    int frequentSearchMaxWidth() const
+    {
+        return crawler->visibilityBox_->sizeHint().width();
+    }
+
+    void clickFrequentSearch( int valueIndex )
+    {
+        auto* button = frequentSearchButton( valueIndex );
+        REQUIRE( button != nullptr );
+
+        QTest::mouseClick( button, Qt::LeftButton );
+        waitUiState( [ & ]() { return crawler->stopButton_->isHidden(); } );
+    }
+
+    QToolButton* autoMarkedSearchButton( int valueIndex ) const
+    {
+        auto currentValueIndex = 0;
+        for ( auto itemIndex = 0; itemIndex < crawler->autoMarkedSearchesLayout_->count();
+              ++itemIndex ) {
+            auto* widget = crawler->autoMarkedSearchesLayout_->itemAt( itemIndex )->widget();
+            auto* button = widget ? widget->findChild<QToolButton*>() : nullptr;
+            if ( button ) {
+                if ( currentValueIndex == valueIndex ) {
+                    return button;
+                }
+                ++currentValueIndex;
+            }
+        }
+
+        return nullptr;
+    }
+
+    int autoMarkedSearchButtonCount() const
+    {
+        auto count = 0;
+        for ( auto itemIndex = 0; itemIndex < crawler->autoMarkedSearchesLayout_->count();
+              ++itemIndex ) {
+            auto* widget = crawler->autoMarkedSearchesLayout_->itemAt( itemIndex )->widget();
+            auto* button = widget ? widget->findChild<QToolButton*>() : nullptr;
+            if ( button ) {
+                ++count;
+            }
+        }
+
+        return count;
+    }
+
+    QString autoMarkedSearchTooltip( int valueIndex ) const
+    {
+        const auto* button = autoMarkedSearchButton( valueIndex );
+        return button ? button->toolTip() : QString{};
+    }
+
+    void removeAutoMarkedSearch( int valueIndex )
+    {
+        const auto* button = autoMarkedSearchButton( valueIndex );
+        REQUIRE( button != nullptr );
+
+        crawler->removeAutoMarkedSearch( button->toolTip() );
+    }
+
     void render()
     {
         crawler->grab();
@@ -186,7 +319,7 @@ struct CrawlerWidget::access_by<CrawlerWidgetPrivate> {
         scrollBar->setValue( scrollBar->maximum() );
     }
 
-    void enableFollowMode()
+    void enableGlobalFollowMode()
     {
         Q_EMIT crawler->followSet( true );
     }
@@ -236,6 +369,20 @@ SCENARIO( "Crawler widget search", "[ui]" )
                 REQUIRE( crawlerVisitor.getLogFilteredNbLines().get() == SL_NB_LINES );
             }
 
+            AND_WHEN( "mark current search results" )
+            {
+                crawlerVisitor.markCurrentSearchResults();
+
+                THEN( "all matched lines are marked" )
+                {
+                    REQUIRE( crawlerVisitor.getMarksCount().get() == SL_NB_LINES );
+                    REQUIRE( waitUiState( [ &crawlerVisitor ]() {
+                        return crawlerVisitor.autoMarkedSearchButtonCount() == 1;
+                    } ) );
+                    REQUIRE( crawlerVisitor.autoMarkedSearchTooltip( 0 ) == "this is line" );
+                }
+            }
+
             AND_WHEN( "copy all from main view" )
             {
                 crawlerVisitor.selectAllInMainView();
@@ -272,14 +419,14 @@ SCENARIO( "Crawler widget search", "[ui]" )
                 }
             }
 
-            AND_WHEN( "follow mode is enabled and filtered view is overscrolled at the bottom" )
+            AND_WHEN( "global follow mode is enabled after filtered view reaches the bottom" )
             {
                 crawlerVisitor.crawler->resize( 1200, 600 );
                 crawlerVisitor.crawler->show();
                 REQUIRE( QTest::qWaitForWindowExposed( crawlerVisitor.crawler.get() ) );
 
                 crawlerVisitor.scrollFilteredViewToBottom();
-                crawlerVisitor.enableFollowMode();
+                crawlerVisitor.enableGlobalFollowMode();
                 for ( auto i = 0; i < 5; ++i ) {
                     crawlerVisitor.scrollFilteredViewDown();
                 }
@@ -342,6 +489,81 @@ SCENARIO( "Crawler widget search", "[ui]" )
             THEN( "has lines matched" )
             {
                 REQUIRE( crawlerVisitor.getLogFilteredNbLines().get() >= 2 );
+            }
+        }
+    }
+}
+
+SCENARIO( "Crawler widget frequent search history shortcuts", "[ui]" )
+{
+    QTemporaryFile file{ "crawler_frequent_search_test_XXXXXX" };
+    REQUIRE( generateDataFiles( file ) );
+
+    Session session;
+    auto& savedSearches = session.savedSearches();
+    savedSearches.clear();
+
+    const auto longSearch = QStringLiteral(
+        "camera_params_setting_done_request_with_a_very_long_middle_section" );
+    savedSearches.addRecent( "this is line" );
+    savedSearches.addRecent( "this is line" );
+    savedSearches.addRecent( "this is line" );
+    savedSearches.addRecent( "line 000010" );
+    savedSearches.addRecent( "line 000010" );
+    savedSearches.addRecent( longSearch );
+    savedSearches.addRecent( longSearch );
+    for ( auto i = 0; i < 8; ++i ) {
+        savedSearches.addRecent( QStringLiteral( "history_%1" ).arg( i ) );
+    }
+
+    CrawlerWidgetVisitor crawlerVisitor;
+    crawlerVisitor.crawler.reset( static_cast<CrawlerWidget*>(
+        session.open( file.fileName(), []() { return new CrawlerWidget(); } ) ) );
+
+    waitUiState( [ & ]() { return crawlerVisitor.getLogNbLines().get() == SL_NB_LINES; } );
+    waitUiState( [ & ]() { return crawlerVisitor.isLoadingFinished(); } );
+
+    GIVEN( "loaded log data and search history" )
+    {
+        REQUIRE( waitUiState( [ &crawlerVisitor ]() {
+            return crawlerVisitor.frequentSearchButtonCount() == 10;
+        } ) );
+
+        THEN( "frequent history searches are shown as fixed-width shortcuts" )
+        {
+            REQUIRE( crawlerVisitor.frequentSearchTooltip( 0 ) == "this is line (3)" );
+            REQUIRE( crawlerVisitor.frequentSearchText( 0 ) == "this is line" );
+
+            auto* longSearchButton
+                = crawlerVisitor.frequentSearchButtonByTooltip( longSearch + " (2)" );
+            REQUIRE( longSearchButton != nullptr );
+            REQUIRE( longSearchButton->width() == crawlerVisitor.frequentSearchMaxWidth() );
+            REQUIRE( longSearchButton->parentWidget()->width()
+                     == crawlerVisitor.frequentSearchMaxWidth() );
+            REQUIRE( longSearchButton->text().contains( "..." ) );
+            REQUIRE( longSearchButton->toolTip() == longSearch + " (2)" );
+        }
+
+        WHEN( "clicking a frequent search" )
+        {
+            crawlerVisitor.clickFrequentSearch( 0 );
+
+            THEN( "search is run and matching lines are marked" )
+            {
+                REQUIRE( waitUiState( [ &crawlerVisitor ]() {
+                    return crawlerVisitor.getMarksCount().get() == SL_NB_LINES;
+                } ) );
+                REQUIRE( crawlerVisitor.getLogFilteredNbLines().get() == SL_NB_LINES );
+                REQUIRE( waitUiState( [ &crawlerVisitor ]() {
+                    return crawlerVisitor.autoMarkedSearchButtonCount() == 1;
+                } ) );
+                REQUIRE( crawlerVisitor.autoMarkedSearchTooltip( 0 ) == "this is line" );
+
+                crawlerVisitor.removeAutoMarkedSearch( 0 );
+
+                REQUIRE( waitUiState(
+                    [ &crawlerVisitor ]() { return crawlerVisitor.getMarksCount().get() == 0; } ) );
+                REQUIRE( crawlerVisitor.autoMarkedSearchButtonCount() == 0 );
             }
         }
     }

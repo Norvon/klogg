@@ -259,6 +259,61 @@
         <translation>Search</translation>
     </message>
     <message>
+        <location filename="../../ui/src/crawlerwidget.cpp" line="1088"/>
+        <source>Mark current search results</source>
+        <translation>Mark current search results</translation>
+    </message>
+    <message>
+        <location filename="../../ui/src/crawlerwidget.cpp" line="581"/>
+        <source>%1 matches found, %2 new marks added</source>
+        <translation>%1 matches found, %2 new marks added</translation>
+    </message>
+    <message>
+        <location filename="../../ui/src/crawlerwidget.cpp" line="1008"/>
+        <source>Frequent searches:</source>
+        <translation>Frequent searches:</translation>
+    </message>
+    <message>
+        <location filename="../../ui/src/crawlerwidget.cpp" line="1026"/>
+        <source>Clear usage count</source>
+        <translation>Clear usage count</translation>
+    </message>
+    <message>
+        <location filename="../../ui/src/crawlerwidget.cpp" line="1026"/>
+        <source>Clear all</source>
+        <translation>Clear all</translation>
+    </message>
+    <message>
+        <location filename="../../ui/src/crawlerwidget.cpp" line="1026"/>
+        <source>Clear all frequent search usage counts</source>
+        <translation>Clear all frequent search usage counts</translation>
+    </message>
+    <message>
+        <location filename="../../ui/src/crawlerwidget.cpp" line="1026"/>
+        <source>Clear all frequent search usage counts?</source>
+        <translation>Clear all frequent search usage counts?</translation>
+    </message>
+    <message>
+        <location filename="../../ui/src/crawlerwidget.cpp" line="1115"/>
+        <source>Marked searches:</source>
+        <translation>Marked searches:</translation>
+    </message>
+    <message>
+        <location filename="../../ui/src/crawlerwidget.cpp" line="1138"/>
+        <source>Remove marks</source>
+        <translation>Remove marks</translation>
+    </message>
+    <message>
+        <location filename="../../ui/src/crawlerwidget.cpp" line="1138"/>
+        <source>Remove all marked searches</source>
+        <translation>Remove all marked searches</translation>
+    </message>
+    <message>
+        <location filename="../../ui/src/crawlerwidget.cpp" line="1138"/>
+        <source>Remove all marked searches?</source>
+        <translation>Remove all marked searches?</translation>
+    </message>
+    <message>
         <location filename="../../ui/src/crawlerwidget.cpp" line="1455"/>
         <source>Error in expression</source>
         <translation>Error in expression</translation>

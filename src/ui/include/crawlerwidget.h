@@ -47,9 +47,11 @@
 #include <QComboBox>
 #include <QFont>
 #include <QHBoxLayout>
+#include <QHash>
 #include <QLabel>
 #include <QMenu>
 #include <QPushButton>
+#include <QSet>
 #include <QSplitter>
 #include <QToolButton>
 #include <QVBoxLayout>
@@ -188,6 +190,8 @@ class CrawlerWidget : public QSplitter,
   private Q_SLOTS:
     // Instructs the widget to start a search using the current search line.
     void startNewSearch();
+    // Mark all lines in the current search results.
+    void markCurrentSearchResults();
     // Stop the currently ongoing search (if one exists)
     void stopSearch();
     void loadIcons();
@@ -250,6 +254,7 @@ class CrawlerWidget : public QSplitter,
     // Save current search as predefined filter
     void saveAsPredefinedFilter();
     void setSearchPatternFromPredefinedFilters( const QList<PredefinedFilter>& filters );
+    void refreshFrequentSearchButtons();
 
     // Search Context Menu
     void showSearchContextMenu();
@@ -341,6 +346,18 @@ class CrawlerWidget : public QSplitter,
     QString escapeSearchPattern( const QString& searchPattern, bool isRegex = false ) const;
     QString& combinePatterns( QString& currentPattern, const QString& newPattern ) const;
     void setSearchPattern( const QString& searchPattern );
+    QString elideFrequentSearchText( const QString& text, int maxWidth ) const;
+    void applyFrequentSearch( const QString& searchText );
+    void resetFrequentSearchUsage( const QString& searchText );
+    void confirmResetAllFrequentSearches();
+    void refreshAutoMarkedSearchButtons();
+    bool isAutoMarkedLine( LineNumber line ) const;
+    bool hasOtherAutoMarkOwner( LineNumber line, const QString& searchText ) const;
+    void removeLineFromAutoMarkedSearches( LineNumber line );
+    void clearAutoMarkedSearches();
+    void removeAutoMarkedSearch( const QString& searchText );
+    void removeAllAutoMarkedSearches();
+    void confirmRemoveAllAutoMarkedSearches();
 
     void resetStateOnSearchPatternChanges();
 
@@ -390,6 +407,7 @@ class CrawlerWidget : public QSplitter,
 
     QToolButton* clearButton_;
     QToolButton* searchButton_;
+    QToolButton* markSearchResultsButton_;
     QToolButton* keepSearchResultsButton_;
     QToolButton* stopButton_;
 
@@ -398,6 +416,10 @@ class CrawlerWidget : public QSplitter,
     QToolButton* inverseButton_;
     QToolButton* booleanButton_;
     QToolButton* searchRefreshButton_;
+    QWidget* frequentSearchesWidget_;
+    QHBoxLayout* frequentSearchesLayout_;
+    QWidget* autoMarkedSearchesWidget_ = nullptr;
+    QHBoxLayout* autoMarkedSearchesLayout_ = nullptr;
 
     std::map<QString, QShortcut*> shortcuts_;
 
@@ -410,6 +432,10 @@ class CrawlerWidget : public QSplitter,
 
     // Search state (for auto-refresh and truncation)
     SearchState searchState_;
+    bool pendingAutoMarkSearch_ = false;
+    QString pendingAutoMarkSearchText_;
+    QStringList autoMarkedSearches_;
+    QHash<QString, QSet<LineNumber::UnderlyingType>> autoMarkedLinesBySearch_;
 
     // the current dataStatus (whether we have new, not seen, data)
     DataStatus dataStatus_ = DataStatus::OLD_DATA;
