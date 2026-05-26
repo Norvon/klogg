@@ -343,7 +343,8 @@ class AbstractLogView : public QAbstractScrollArea, public SearchableWidgetInter
         const AbstractLogData* logData = nullptr;
         QString pattern;
         int columns = 0;
-        LineNumber firstLine = 0_lnum;
+        LineNumber firstLineRangeStart = 0_lnum;
+        LineNumber firstLineRangeEnd = 0_lnum;
         QString prefix;
     };
     FixedPrefixLookbackCache fixedPrefixLookbackCache_;

@@ -61,6 +61,7 @@
 #include <QLineEdit>
 #include <QListView>
 #include <QMessageBox>
+#include <QPointer>
 #include <QScreen>
 #include <QShortcut>
 #include <QStandardItemModel>
@@ -431,14 +432,14 @@ void CrawlerWidget::startNewSearch()
         filteredView_ = new FilteredView( logFilteredData_.get(), quickFindPattern_.get() );
         filteredViewsData_[ filteredView_ ] = logFilteredData_;
         autoMarkedSearchStates_[ filteredView_ ] = {};
+        filteredViewMatches_[ filteredView_ ] = 0_lcount;
 
         connectAllFilteredViewSlots( filteredView_ );
 
         auto index = tabbedFilteredView_->addTab( filteredView_, "" );
         tabbedFilteredView_->setCurrentIndex( index );
 
-        connect( logFilteredData_.get(), &LogFilteredData::searchProgressed, this,
-                 &CrawlerWidget::updateFilteredView, Qt::QueuedConnection );
+        connectSearchProgress( filteredView_, logFilteredData_.get() );
 
         logMainView_->useNewFiltering( logFilteredData_.get() );
 
@@ -488,8 +489,8 @@ void CrawlerWidget::stopSearch()
 {
     logFilteredData_->interruptSearch();
     markSearchResultsButton_->setEnabled( false );
-    pendingAutoMarkSearch_ = false;
-    pendingAutoMarkSearchText_.clear();
+    clearPendingAutoMarkSearch();
+    pendingAutoMarkSearches_.erase( filteredView_ );
     searchState_.stopSearch();
     printSearchInfoMessage();
 }
@@ -552,8 +553,66 @@ void CrawlerWidget::showSearchContextMenu()
 void CrawlerWidget::updateFilteredView( LinesCount nbMatches, int progress,
                                         LineNumber initialPosition )
 {
+    updateFilteredViewForData( filteredView_, logFilteredData_.get(), nbMatches, progress,
+                               initialPosition );
+}
+
+void CrawlerWidget::connectSearchProgress( FilteredView* view, LogFilteredData* filteredData )
+{
+    const QPointer<FilteredView> viewPtr{ view };
+    const QPointer<LogFilteredData> filteredDataPtr{ filteredData };
+
+    connect( filteredData, &LogFilteredData::searchProgressed, this,
+             [ this, viewPtr, filteredDataPtr ]( LinesCount nbMatches, int progress,
+                                                 LineNumber initialPosition ) {
+                 if ( viewPtr == nullptr || filteredDataPtr == nullptr ) {
+                     return;
+                 }
+
+                 updateFilteredViewForData( viewPtr.data(), filteredDataPtr.data(), nbMatches,
+                                            progress, initialPosition );
+             },
+             Qt::QueuedConnection );
+}
+
+void CrawlerWidget::updateFilteredViewForData( FilteredView* view, LogFilteredData* filteredData,
+                                               LinesCount nbMatches, int progress,
+                                               LineNumber initialPosition )
+{
     LOG_DEBUG << "updateFilteredView received.";
 
+    if ( view == nullptr || filteredData == nullptr ) {
+        return;
+    }
+
+    const auto isCurrentView = view == filteredView_ && filteredData == logFilteredData_.get();
+
+    auto& previousMatches = filteredViewMatches_[ view ];
+    const auto matchesChanged = nbMatches != previousMatches;
+    if ( matchesChanged ) {
+        previousMatches = nbMatches;
+    }
+
+    if ( !isCurrentView ) {
+        if ( matchesChanged ) {
+            view->updateData();
+        }
+
+        if ( progress == 100 ) {
+            if ( const auto pendingSearch = pendingAutoMarkSearches_.find( view );
+                 pendingSearch != pendingAutoMarkSearches_.end() ) {
+                const auto autoMarkSearchText = pendingSearch->second;
+                pendingAutoMarkSearches_.erase( pendingSearch );
+
+                markMatchesAsAutoMarked( view, filteredData, autoMarkSearchText );
+                refreshViewsAfterMarksChanged( view, filteredData );
+            }
+        }
+
+        return;
+    }
+
+    nbMatches_ = nbMatches;
     searchInfoLine_->show();
 
     if ( progress == 100 ) {
@@ -586,11 +645,9 @@ void CrawlerWidget::updateFilteredView( LinesCount nbMatches, int progress,
     }
 
     // If more (or less, e.g. come back to 0) matches have been found
-    if ( nbMatches != nbMatches_ ) {
-        nbMatches_ = nbMatches;
-
+    if ( matchesChanged ) {
         // Recompute the content of the filtered window.
-        filteredView_->updateData();
+        view->updateData();
 
         // Update the match overview
         overview_.updateData( logData_->getNbLine() );
@@ -604,33 +661,36 @@ void CrawlerWidget::updateFilteredView( LinesCount nbMatches, int progress,
         update();
     }
 
-    if ( progress == 100 && pendingAutoMarkSearch_ ) {
-        pendingAutoMarkSearch_ = false;
-        const auto autoMarkSearchText = pendingAutoMarkSearchText_;
-        pendingAutoMarkSearchText_.clear();
+    if ( progress == 100 ) {
+        if ( const auto pendingSearch = pendingAutoMarkSearches_.find( view );
+             pendingSearch != pendingAutoMarkSearches_.end() ) {
+            const auto autoMarkSearchText = pendingSearch->second;
+            pendingAutoMarkSearches_.erase( pendingSearch );
 
-        const auto newMarks = markCurrentMatchesAsAutoMarked( autoMarkSearchText );
-        refreshViewsAfterMarksChanged();
+            const auto newMarks = markMatchesAsAutoMarked( view, filteredData, autoMarkSearchText );
+            refreshViewsAfterMarksChanged( view, filteredData );
 
-        searchInfoLine_->setPalette( searchInfoLineDefaultPalette_ );
-        searchInfoLine_->setText(
-            tr( "%1 matches found, %2 new marks added" ).arg( nbMatches.get() ).arg( newMarks ) );
-        searchInfoLine_->show();
+            searchInfoLine_->setPalette( searchInfoLineDefaultPalette_ );
+            searchInfoLine_->setText( tr( "%1 matches found, %2 new marks added" )
+                                          .arg( nbMatches.get() )
+                                          .arg( newMarks ) );
+            searchInfoLine_->show();
+        }
     }
 
     // Try to restore the filtered window selection close to where it was
     // only for full searches to avoid disconnecting follow mode!
     if ( ( progress == 100 ) && ( initialPosition == searchStartLine_ )
          && ( !isFollowEnabled() ) ) {
-        const auto currenLineIndex = logFilteredData_->getLineIndexNumber( currentLineNumber_ );
+        const auto currenLineIndex = filteredData->getLineIndexNumber( currentLineNumber_ );
         LOG_DEBUG << "updateFilteredView: restoring selection: "
                   << " absolute line number (0based) " << currentLineNumber_ << " index "
                   << currenLineIndex;
-        filteredView_->selectAndDisplayLine( currenLineIndex );
-        filteredView_->setSearchLimits( searchStartLine_, searchEndLine_ );
+        view->selectAndDisplayLine( currenLineIndex );
+        view->setSearchLimits( searchStartLine_, searchEndLine_ );
 
         if ( nbMatches > 0_lcount ) {
-            filteredView_->setFocus( Qt::OtherFocusReason );
+            view->setFocus( Qt::OtherFocusReason );
         }
     }
 }
@@ -1130,6 +1190,12 @@ void CrawlerWidget::applyFrequentSearch( const QString& searchText )
     startNewSearch();
 }
 
+void CrawlerWidget::clearPendingAutoMarkSearch()
+{
+    pendingAutoMarkSearch_ = false;
+    pendingAutoMarkSearchText_.clear();
+}
+
 void CrawlerWidget::resetFrequentSearchUsage( const QString& searchText )
 {
     auto& searches = SavedSearches::getSynced();
@@ -1156,14 +1222,25 @@ void CrawlerWidget::confirmResetAllFrequentSearches()
 
 CrawlerWidget::AutoMarkedSearchState& CrawlerWidget::currentAutoMarkedSearchState()
 {
-    return autoMarkedSearchStates_[ filteredView_ ];
+    return autoMarkedSearchStateFor( filteredView_ );
 }
 
 const CrawlerWidget::AutoMarkedSearchState& CrawlerWidget::currentAutoMarkedSearchState() const
 {
+    return autoMarkedSearchStateFor( filteredView_ );
+}
+
+CrawlerWidget::AutoMarkedSearchState& CrawlerWidget::autoMarkedSearchStateFor( FilteredView* view )
+{
+    return autoMarkedSearchStates_[ view ];
+}
+
+const CrawlerWidget::AutoMarkedSearchState& CrawlerWidget::autoMarkedSearchStateFor(
+    FilteredView* view ) const
+{
     static const AutoMarkedSearchState emptyState;
 
-    const auto state = autoMarkedSearchStates_.find( filteredView_ );
+    const auto state = autoMarkedSearchStates_.find( view );
     if ( state == autoMarkedSearchStates_.cend() ) {
         return emptyState;
     }
@@ -1171,24 +1248,25 @@ const CrawlerWidget::AutoMarkedSearchState& CrawlerWidget::currentAutoMarkedSear
     return state->second;
 }
 
-uint64_t CrawlerWidget::markCurrentMatchesAsAutoMarked( const QString& searchText )
+uint64_t CrawlerWidget::markMatchesAsAutoMarked( FilteredView* view, LogFilteredData* filteredData,
+                                                 const QString& searchText )
 {
-    if ( searchText.isEmpty() ) {
+    if ( view == nullptr || filteredData == nullptr || searchText.isEmpty() ) {
         return 0;
     }
 
-    auto& state = currentAutoMarkedSearchState();
+    auto& state = autoMarkedSearchStateFor( view );
     uint64_t newMarks = 0;
     auto autoMarkedLines = state.linesBySearch.value( searchText );
-    logFilteredData_->iterateOverMatches(
-        [ this, &newMarks, &autoMarkedLines ]( LineNumber line ) {
-            if ( !logFilteredData_->lineTypeByLine( line ).testFlag(
+    filteredData->iterateOverMatches(
+        [ this, view, filteredData, &newMarks, &autoMarkedLines ]( LineNumber line ) {
+            if ( !filteredData->lineTypeByLine( line ).testFlag(
                      AbstractLogData::LineTypeFlags::Mark ) ) {
-                logFilteredData_->addMark( line );
+                filteredData->addMark( line );
                 autoMarkedLines.insert( line.get() );
                 ++newMarks;
             }
-            else if ( isAutoMarkedLine( line ) ) {
+            else if ( isAutoMarkedLine( view, line ) ) {
                 autoMarkedLines.insert( line.get() );
             }
         } );
@@ -1197,18 +1275,38 @@ uint64_t CrawlerWidget::markCurrentMatchesAsAutoMarked( const QString& searchTex
         state.linesBySearch[ searchText ] = autoMarkedLines;
         state.searches.removeAll( searchText );
         state.searches.push_front( searchText );
-        refreshAutoMarkedSearchButtons();
+        if ( view == filteredView_ ) {
+            refreshAutoMarkedSearchButtons();
+        }
     }
 
     return newMarks;
 }
 
+uint64_t CrawlerWidget::markCurrentMatchesAsAutoMarked( const QString& searchText )
+{
+    return markMatchesAsAutoMarked( filteredView_, logFilteredData_.get(), searchText );
+}
+
+void CrawlerWidget::refreshViewsAfterMarksChanged( FilteredView* view,
+                                                   LogFilteredData* filteredData )
+{
+    if ( view == nullptr ) {
+        return;
+    }
+
+    view->updateData();
+
+    if ( view == filteredView_ && filteredData == logFilteredData_.get() ) {
+        logMainView_->updateData();
+        overview_.updateData( logData_->getNbLine() );
+        update();
+    }
+}
+
 void CrawlerWidget::refreshViewsAfterMarksChanged()
 {
-    filteredView_->updateData();
-    logMainView_->updateData();
-    overview_.updateData( logData_->getNbLine() );
-    update();
+    refreshViewsAfterMarksChanged( filteredView_, logFilteredData_.get() );
 }
 
 void CrawlerWidget::refreshAutoMarkedSearchButtons()
@@ -1257,8 +1355,8 @@ void CrawlerWidget::refreshAutoMarkedSearchButtons()
         removeButton->raise();
 
         connect( searchButton, &QToolButton::clicked, this, [ this, searchText ] {
-            pendingAutoMarkSearch_ = false;
-            pendingAutoMarkSearchText_.clear();
+            clearPendingAutoMarkSearch();
+            pendingAutoMarkSearches_.erase( filteredView_ );
             searchLineEdit_->setEditText( searchText );
             updatePredefinedFiltersWidget();
             searchLineEdit_->lineEdit()->setFocus();
@@ -1283,13 +1381,18 @@ void CrawlerWidget::refreshAutoMarkedSearchButtons()
     autoMarkedSearchesLayout_->addStretch();
 }
 
-bool CrawlerWidget::isAutoMarkedLine( LineNumber line ) const
+bool CrawlerWidget::isAutoMarkedLine( FilteredView* view, LineNumber line ) const
 {
-    const auto& state = currentAutoMarkedSearchState();
+    const auto& state = autoMarkedSearchStateFor( view );
     return std::any_of( state.linesBySearch.cbegin(), state.linesBySearch.cend(),
                         [ line ]( const auto& markedLines ) {
                             return markedLines.contains( line.get() );
                         } );
+}
+
+bool CrawlerWidget::isAutoMarkedLine( LineNumber line ) const
+{
+    return isAutoMarkedLine( filteredView_, line );
 }
 
 bool CrawlerWidget::hasOtherAutoMarkOwner( LineNumber line, const QString& searchText ) const
@@ -1440,6 +1543,7 @@ void CrawlerWidget::setup()
     filteredView_ = new FilteredView( logFilteredData_.get(), quickFindPattern_.get() );
     filteredViewsData_[ filteredView_ ] = logFilteredData_;
     autoMarkedSearchStates_[ filteredView_ ] = {};
+    filteredViewMatches_[ filteredView_ ] = 0_lcount;
     filteredView_->setContentsMargins( 2, 0, 2, 0 );
     filteredView_->allowFollowMode( false );
 
@@ -1741,8 +1845,7 @@ void CrawlerWidget::setup()
 
     connect( logMainView_, &LogMainView::changeFontSize, this, &CrawlerWidget::changeFontSize );
 
-    connect( logFilteredData_.get(), &LogFilteredData::searchProgressed, this,
-             &CrawlerWidget::updateFilteredView, Qt::QueuedConnection );
+    connectSearchProgress( filteredView_, logFilteredData_.get() );
 
     // Sent load file update to MainWindow (for status update)
     connect( logData_.get(), &LogData::loadingProgressed, this, &CrawlerWidget::loadingProgressed );
@@ -1802,11 +1905,16 @@ void CrawlerWidget::changeFilteredView( int tabIndex )
 
         filteredView_ = tabFilteredView;
         logFilteredData_ = filteredViewsData_.at( tabFilteredView );
+        const auto matches = filteredViewMatches_.find( tabFilteredView );
+        nbMatches_ = matches != filteredViewMatches_.cend() ? matches->second
+                                                            : logFilteredData_->getNbMatches();
 
         Q_EMIT filteredViewChanged();
 
         logMainView_->useNewFiltering( logFilteredData_.get() );
         changeFilteredViewVisibility( visibilityBox_->currentIndex() );
+        markSearchResultsButton_->setEnabled( nbMatches_ > 0_lcount );
+        printSearchInfoMessage( nbMatches_ );
         refreshAutoMarkedSearchButtons();
     }
 }
@@ -1822,6 +1930,8 @@ void CrawlerWidget::closeFilteredView( int tabIndex )
     connect( tabFilteredView, &QObject::destroyed, this, [ this, tabFilteredView ] {
         filteredViewsData_.erase( tabFilteredView );
         autoMarkedSearchStates_.erase( tabFilteredView );
+        pendingAutoMarkSearches_.erase( tabFilteredView );
+        filteredViewMatches_.erase( tabFilteredView );
     } );
     tabFilteredView->deleteLater();
 }
@@ -2120,6 +2230,7 @@ void CrawlerWidget::replaceCurrentSearch( const QString& searchText )
     QApplication::processEvents( QEventLoop::ExcludeUserInputEvents );
 
     nbMatches_ = 0_lcount;
+    filteredViewMatches_[ filteredView_ ] = 0_lcount;
     markSearchResultsButton_->setEnabled( false );
 
     // Switch to "Marks and matches" view when in "Marks" view
@@ -2151,6 +2262,13 @@ void CrawlerWidget::replaceCurrentSearch( const QString& searchText )
             stopButton_->show();
             clearButton_->hide();
             searchButton_->hide();
+            if ( pendingAutoMarkSearch_ ) {
+                pendingAutoMarkSearches_[ filteredView_ ] = pendingAutoMarkSearchText_;
+                clearPendingAutoMarkSearch();
+            }
+            else {
+                pendingAutoMarkSearches_.erase( filteredView_ );
+            }
             // Start a new asynchronous search
             logFilteredData_->runSearch( regexpPattern, searchStartLine_, searchEndLine_ );
             // Accept auto-refresh of the search
@@ -2160,8 +2278,8 @@ void CrawlerWidget::replaceCurrentSearch( const QString& searchText )
             filteredView_->setSearchPattern( regexpPattern );
         }
         else {
-            pendingAutoMarkSearch_ = false;
-            pendingAutoMarkSearchText_.clear();
+            clearPendingAutoMarkSearch();
+            pendingAutoMarkSearches_.erase( filteredView_ );
             // The regexp is wrong
             logFilteredData_->clearSearch();
             filteredView_->updateData();
@@ -2186,8 +2304,8 @@ void CrawlerWidget::replaceCurrentSearch( const QString& searchText )
         }
     }
     else {
-        pendingAutoMarkSearch_ = false;
-        pendingAutoMarkSearchText_.clear();
+        clearPendingAutoMarkSearch();
+        pendingAutoMarkSearches_.erase( filteredView_ );
         searchState_.resetState();
         printSearchInfoMessage();
     }

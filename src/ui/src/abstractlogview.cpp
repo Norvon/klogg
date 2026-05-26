@@ -2385,16 +2385,24 @@ void AbstractLogView::drawTextArea( QPaintDevice* paintDevice )
         if ( fixedPrefixLookbackCache_.valid && fixedPrefixLookbackCache_.logData == logData_
              && fixedPrefixLookbackCache_.pattern == fixedPrefixPattern_
              && fixedPrefixLookbackCache_.columns == fixedPrefixColumns
-             && fixedPrefixLookbackCache_.firstLine == firstLine_ ) {
+             && firstLine_ >= fixedPrefixLookbackCache_.firstLineRangeStart
+             && firstLine_ <= fixedPrefixLookbackCache_.firstLineRangeEnd ) {
+            const auto nextFirstLine = firstLine_ + 1_lcount;
+            if ( fixedPrefixLookbackCache_.firstLineRangeEnd < nextFirstLine ) {
+                fixedPrefixLookbackCache_.firstLineRangeEnd = nextFirstLine;
+            }
             return fixedPrefixLookbackCache_.prefix;
         }
 
-        const auto cachePrefix = [ this, fixedPrefixColumns ]( QString prefix ) {
+        const auto cachePrefix = [ this, fixedPrefixColumns ]( QString prefix,
+                                                               LineNumber firstLineRangeStart,
+                                                               LineNumber firstLineRangeEnd ) {
             fixedPrefixLookbackCache_.valid = true;
             fixedPrefixLookbackCache_.logData = logData_;
             fixedPrefixLookbackCache_.pattern = fixedPrefixPattern_;
             fixedPrefixLookbackCache_.columns = fixedPrefixColumns;
-            fixedPrefixLookbackCache_.firstLine = firstLine_;
+            fixedPrefixLookbackCache_.firstLineRangeStart = firstLineRangeStart;
+            fixedPrefixLookbackCache_.firstLineRangeEnd = firstLineRangeEnd;
             fixedPrefixLookbackCache_.prefix = prefix;
             return prefix;
         };
@@ -2413,7 +2421,11 @@ void AbstractLogView::drawTextArea( QPaintDevice* paintDevice )
                 auto expandedLine = untabify( QString{ previousLines[ lineIndex - 1 ] } );
                 const auto prefixText = extractFixedPrefixText( expandedLine );
                 if ( prefixText.has_value() ) {
-                    return cachePrefix( *prefixText );
+                    const auto prefixLine
+                        = chunkStartLine
+                          + LinesCount{ static_cast<LinesCount::UnderlyingType>( lineIndex - 1 ) };
+                    return cachePrefix( *prefixText, prefixLine + 1_lcount,
+                                        firstLine_ + 1_lcount );
                 }
             }
 
@@ -2421,7 +2433,7 @@ void AbstractLogView::drawTextArea( QPaintDevice* paintDevice )
             searchEndLine = chunkStartLine;
         }
 
-        return cachePrefix( QString{} );
+        return cachePrefix( QString{}, firstLine_, firstLine_ + 1_lcount );
     };
     const auto makeFixedPrefixText = [ &extractFixedPrefixText, &findPreviousFixedPrefix,
                                        this, inheritFixedPrefix ]( const QString& expandedLine,

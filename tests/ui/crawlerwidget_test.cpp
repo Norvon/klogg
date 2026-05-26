@@ -182,6 +182,37 @@ struct CrawlerWidget::access_by<CrawlerWidgetPrivate> {
         QTest::qWait( 50 );
     }
 
+    FilteredView* filteredTab( int tabIndex ) const
+    {
+        return qobject_cast<FilteredView*>( crawler->tabbedFilteredView_->widget( tabIndex ) );
+    }
+
+    LinesCount marksCountForFilteredTab( int tabIndex ) const
+    {
+        auto* tabView = filteredTab( tabIndex );
+        REQUIRE( tabView != nullptr );
+
+        return crawler->filteredViewsData_.at( tabView )->getNbMarks();
+    }
+
+    void queuePendingAutoMarkForFilteredTab( int tabIndex, const QString& searchText )
+    {
+        auto* tabView = filteredTab( tabIndex );
+        REQUIRE( tabView != nullptr );
+
+        crawler->pendingAutoMarkSearches_[ tabView ] = searchText;
+    }
+
+    void completeSearchForFilteredTab( int tabIndex, LinesCount nbMatches )
+    {
+        auto* tabView = filteredTab( tabIndex );
+        REQUIRE( tabView != nullptr );
+
+        auto filteredData = crawler->filteredViewsData_.at( tabView );
+        crawler->updateFilteredViewForData( tabView, filteredData.get(), nbMatches, 100,
+                                            crawler->searchStartLine_ );
+    }
+
     QToolButton* frequentSearchButton( int valueIndex ) const
     {
         auto currentValueIndex = 0;
@@ -574,6 +605,61 @@ SCENARIO( "Crawler widget auto marked searches are scoped to kept result tabs", 
                 REQUIRE( crawlerVisitor.getMarksCount().get() == 1 );
                 REQUIRE( crawlerVisitor.autoMarkedSearchButtonCount() == 1 );
                 REQUIRE( crawlerVisitor.autoMarkedSearchTooltip( 0 ) == "line 000011" );
+            }
+        }
+    }
+}
+
+SCENARIO( "Crawler widget pending auto mark completion is scoped to its result tab", "[ui]" )
+{
+    QTemporaryFile file{ "crawler_pending_auto_marked_tabs_test_XXXXXX" };
+    REQUIRE( generateDataFiles( file ) );
+
+    Session session;
+    session.savedSearches().clear();
+
+    CrawlerWidgetVisitor crawlerVisitor;
+    crawlerVisitor.crawler.reset( static_cast<CrawlerWidget*>(
+        session.open( file.fileName(), []() { return new CrawlerWidget(); } ) ) );
+
+    waitUiState( [ & ]() { return crawlerVisitor.getLogNbLines().get() == SL_NB_LINES; } );
+    waitUiState( [ & ]() { return crawlerVisitor.isLoadingFinished(); } );
+
+    GIVEN( "two kept filtered result tabs" )
+    {
+        crawlerVisitor.replaceSearchPattern( "line 000010" );
+        crawlerVisitor.runSearch();
+
+        REQUIRE( crawlerVisitor.filteredTabCount() == 1 );
+        REQUIRE( crawlerVisitor.getLogFilteredNbLines().get() == 1 );
+        REQUIRE( crawlerVisitor.marksCountForFilteredTab( 0 ).get() == 0 );
+
+        crawlerVisitor.keepNextSearchResults();
+        crawlerVisitor.replaceSearchPattern( "line 000011" );
+        crawlerVisitor.runSearch();
+
+        REQUIRE( crawlerVisitor.filteredTabCount() == 2 );
+        REQUIRE( crawlerVisitor.getLogFilteredNbLines().get() == 1 );
+        REQUIRE( crawlerVisitor.marksCountForFilteredTab( 1 ).get() == 0 );
+        REQUIRE( crawlerVisitor.autoMarkedSearchButtonCount() == 0 );
+
+        WHEN( "an older tab completes a pending auto-mark search after switching tabs" )
+        {
+            crawlerVisitor.queuePendingAutoMarkForFilteredTab( 0, "line 000010" );
+            crawlerVisitor.completeSearchForFilteredTab( 0, 1_lcount );
+
+            THEN( "the mark and marked-search UI stay attached to the older tab" )
+            {
+                REQUIRE( crawlerVisitor.marksCountForFilteredTab( 0 ).get() == 1 );
+                REQUIRE( crawlerVisitor.marksCountForFilteredTab( 1 ).get() == 0 );
+                REQUIRE( crawlerVisitor.getMarksCount().get() == 0 );
+                REQUIRE( crawlerVisitor.autoMarkedSearchButtonCount() == 0 );
+
+                crawlerVisitor.switchFilteredTab( 0 );
+
+                REQUIRE( crawlerVisitor.getMarksCount().get() == 1 );
+                REQUIRE( crawlerVisitor.autoMarkedSearchButtonCount() == 1 );
+                REQUIRE( crawlerVisitor.autoMarkedSearchTooltip( 0 ) == "line 000010" );
             }
         }
     }

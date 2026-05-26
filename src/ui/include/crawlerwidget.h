@@ -351,15 +351,25 @@ class CrawlerWidget : public QSplitter,
     void applyFrequentSearch( const QString& searchText );
     void resetFrequentSearchUsage( const QString& searchText );
     void confirmResetAllFrequentSearches();
+    void connectSearchProgress( FilteredView* view, LogFilteredData* filteredData );
+    void updateFilteredViewForData( FilteredView* view, LogFilteredData* filteredData,
+                                    LinesCount nbMatches, int progress,
+                                    LineNumber initialPosition );
     struct AutoMarkedSearchState {
         QStringList searches;
         QHash<QString, QSet<LineNumber::UnderlyingType>> linesBySearch;
     };
+    AutoMarkedSearchState& autoMarkedSearchStateFor( FilteredView* view );
+    const AutoMarkedSearchState& autoMarkedSearchStateFor( FilteredView* view ) const;
     AutoMarkedSearchState& currentAutoMarkedSearchState();
     const AutoMarkedSearchState& currentAutoMarkedSearchState() const;
+    uint64_t markMatchesAsAutoMarked( FilteredView* view, LogFilteredData* filteredData,
+                                      const QString& searchText );
     uint64_t markCurrentMatchesAsAutoMarked( const QString& searchText );
+    void refreshViewsAfterMarksChanged( FilteredView* view, LogFilteredData* filteredData );
     void refreshViewsAfterMarksChanged();
     void refreshAutoMarkedSearchButtons();
+    bool isAutoMarkedLine( FilteredView* view, LineNumber line ) const;
     bool isAutoMarkedLine( LineNumber line ) const;
     bool hasOtherAutoMarkOwner( LineNumber line, const QString& searchText ) const;
     void removeLineFromAutoMarkedSearches( LineNumber line );
@@ -367,6 +377,7 @@ class CrawlerWidget : public QSplitter,
     void removeAutoMarkedSearch( const QString& searchText );
     void removeAllAutoMarkedSearches();
     void confirmRemoveAllAutoMarkedSearches();
+    void clearPendingAutoMarkSearch();
 
     void resetStateOnSearchPatternChanges();
 
@@ -444,6 +455,8 @@ class CrawlerWidget : public QSplitter,
     bool pendingAutoMarkSearch_ = false;
     QString pendingAutoMarkSearchText_;
     std::unordered_map<FilteredView*, AutoMarkedSearchState> autoMarkedSearchStates_;
+    std::unordered_map<FilteredView*, QString> pendingAutoMarkSearches_;
+    std::unordered_map<FilteredView*, LinesCount> filteredViewMatches_;
 
     // the current dataStatus (whether we have new, not seen, data)
     DataStatus dataStatus_ = DataStatus::OLD_DATA;
