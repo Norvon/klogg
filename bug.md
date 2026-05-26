@@ -59,24 +59,32 @@ bugfix 恢复 ID：`019e4f12-16cb-75e0-bc5d-ad11161dc362`
 ## 高 / 中优先级
 
 1. `drawTextArea()` 在 paint 路径中调用 `updateScrollBars()`
+   - 状态：已完成（2026-05-26）
    - 位置：`src/ui/src/abstractlogview.cpp`
    - 问题：绘制过程中修改滚动条 range/pageStep，可能触发滚动信号、重绘抖动或重入。
    - 建议：将固定前缀列导致的 margin / scrollbar 更新移出 paint 路径。
+   - 实现：滚动过程中检测到 margin 变化时只排队刷新滚动条，避免在当前滚动 / 绘制相关调用链里同步修改 scrollbar。
 
 2. 固定前缀列可能导致可见列数为负
+   - 状态：已完成（2026-05-26）
    - 位置：`src/ui/src/abstractlogview.cpp`
    - 问题：小窗口或前缀宽度较大时，`viewport width - leftMargin` 可能小于 0，后续横向滚动条和绘制逻辑可能异常。
    - 建议：给 `getNbVisibleCols()` 加下限，或限制固定前缀列实际宽度。
+   - 实现：可见文本宽度先夹到非负值；固定前缀列数按当前 viewport 可用宽度动态收窄，并至少保留一个正文列。
 
 3. 主搜索高亮迁移覆盖用户偏好
+   - 状态：已完成（2026-05-26）
    - 位置：`src/settings/src/configuration.cpp`
    - 问题：没有迁移标记的旧配置会被强制 `enableMainSearchHighlight_ = true`，即使用户之前明确关闭过。
    - 建议：只在旧 key 不存在时应用新默认值。
+   - 实现：当前实现已先检查 `regexpType.mainHighlight` 是否存在；只有旧配置缺少该 key 时才写入新默认值，不覆盖用户已有设置。
 
 4. `changeFontSize()` 不再持久化字体大小
+   - 状态：已完成（2026-05-26）
    - 位置：`src/ui/src/crawlerwidget.cpp`
    - 问题：旧行为会写入 `Configuration::mainFont`，新行为只改当前 view，重启后丢失。
    - 建议：明确语义；若是字体设置快捷键，应保存配置；若是临时 zoom，应调整命名、文案和重置逻辑。
+   - 实现：当前实现已在字号变更后调用 `Configuration::setMainFont()` 并 `save()`，随后用配置字体刷新所有视图。
 
 5. `getMatchingLinePortion()` 每次跳转都重新取行并执行正则匹配
    - 状态：已完成（2026-05-25）

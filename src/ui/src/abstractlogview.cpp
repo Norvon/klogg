@@ -1063,7 +1063,7 @@ void AbstractLogView::scrollContentsBy( int dx, int dy )
 
     firstCol_ = ( firstCol_.get() - dx ) >= 0 ? LineColumn{ firstCol_.get() - dx } : 0_lcol;
     if ( updateTextAreaMargins() ) {
-        updateScrollBars();
+        scheduleScrollBarsUpdate();
     }
 
     // Update the overview if we have one
@@ -1800,16 +1800,34 @@ LinesCount AbstractLogView::getNbVisibleLines() const
 LineLength AbstractLogView::getNbVisibleCols() const
 {
     const auto scrollBarWidth = verticalScrollBar()->isVisible() ? verticalScrollBar()->width() : 0;
-    const auto visibleColumns
-        = ( viewport()->width() - leftMarginPx_ - scrollBarWidth )
-              / std::max( charWidth_, 1 )
-          + 1;
+    const auto visibleTextWidth
+        = std::max( viewport()->width() - leftMarginPx_ - scrollBarWidth, 0 );
+    const auto visibleColumns = visibleTextWidth / std::max( charWidth_, 1 ) + 1;
     return LineLength{ std::max( visibleColumns, 1 ) };
 }
 
 int AbstractLogView::clampedFixedPrefixColumns() const
 {
-    return std::clamp( fixedPrefixColumns_, MinFixedPrefixColumns, MaxFixedPrefixColumns );
+    const auto configuredColumns
+        = std::clamp( fixedPrefixColumns_, MinFixedPrefixColumns, MaxFixedPrefixColumns );
+    const auto characterWidth = std::max( charWidth_, 1 );
+    const auto scrollBarWidth = verticalScrollBar()->isVisible() ? verticalScrollBar()->width() : 0;
+
+    auto nonPrefixMarginPx = BulletAreaWidth + TextAreaSeparatorWidth + TextAreaSeparatorWidth;
+    if ( lineNumbersVisible_ ) {
+        const int nbDigitsInLineNumber = countDigits( maxDisplayLineNumber().get() );
+        nonPrefixMarginPx += 2 * LineNumberPadding + characterWidth * nbDigitsInLineNumber;
+    }
+
+    const auto availablePrefixWidth
+        = viewport()->width() - scrollBarWidth - nonPrefixMarginPx - characterWidth;
+    const auto maxColumnsForViewport
+        = ( availablePrefixWidth - 2 * FixedPrefixPadding ) / characterWidth;
+    if ( maxColumnsForViewport < MinFixedPrefixColumns ) {
+        return MinFixedPrefixColumns;
+    }
+
+    return std::min( configuredColumns, maxColumnsForViewport );
 }
 
 bool AbstractLogView::shouldDrawFixedPrefix() const
@@ -2294,8 +2312,22 @@ void AbstractLogView::updateScrollBars()
         = std::min( hScrollMaxValue, static_cast<int64_t>( std::numeric_limits<int>::max() ) );
 
     horizontalScrollBar()->setRange( 0, type_safe::narrow_cast<int>( hScrollMaxValue ) );
-    horizontalScrollBar()->setPageStep(
-        type_safe::narrow_cast<int>( visibleColumns.get() * 7 / 8 ) );
+    const auto horizontalPageStep
+        = std::max( visibleColumns.get() * 7 / 8, LineLength::UnderlyingType{ 1 } );
+    horizontalScrollBar()->setPageStep( type_safe::narrow_cast<int>( horizontalPageStep ) );
+}
+
+void AbstractLogView::scheduleScrollBarsUpdate()
+{
+    if ( scrollBarsUpdateQueued_ ) {
+        return;
+    }
+
+    scrollBarsUpdateQueued_ = true;
+    QTimer::singleShot( 0, this, [ this ] {
+        scrollBarsUpdateQueued_ = false;
+        updateScrollBars();
+    } );
 }
 
 void AbstractLogView::drawTextArea( QPaintDevice* paintDevice )

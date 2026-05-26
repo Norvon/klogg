@@ -320,6 +320,7 @@ class AbstractLogView : public QAbstractScrollArea, public SearchableWidgetInter
 
     // Total size of all margins and decorations in pixels
     int leftMarginPx_ = 0;
+    bool scrollBarsUpdateQueued_ = false;
 
     // Digits buffer (for numeric keyboard entry)
     DigitsBuffer digitsBuffer_;
@@ -496,6 +497,7 @@ class AbstractLogView : public QAbstractScrollArea, public SearchableWidgetInter
     void searchUsingFunction( QuickFindSearchFn searchFunction );
 
     void updateScrollBars();
+    void scheduleScrollBarsUpdate();
 
     LineNumber verticalScrollToLineNumber( int scrollPosition ) const;
     int lineNumberToVerticalScroll( LineNumber line ) const;
