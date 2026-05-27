@@ -358,6 +358,7 @@ class CrawlerWidget : public QSplitter,
     struct AutoMarkedSearchState {
         QStringList searches;
         QHash<QString, QSet<LineNumber::UnderlyingType>> linesBySearch;
+        QHash<LineNumber::UnderlyingType, int> ownerCountByLine;
     };
     AutoMarkedSearchState& autoMarkedSearchStateFor( FilteredView* view );
     const AutoMarkedSearchState& autoMarkedSearchStateFor( FilteredView* view ) const;
@@ -371,7 +372,6 @@ class CrawlerWidget : public QSplitter,
     void refreshAutoMarkedSearchButtons();
     bool isAutoMarkedLine( FilteredView* view, LineNumber line ) const;
     bool isAutoMarkedLine( LineNumber line ) const;
-    bool hasOtherAutoMarkOwner( LineNumber line, const QString& searchText ) const;
     void removeLineFromAutoMarkedSearches( LineNumber line );
     void clearAutoMarkedSearches();
     void removeAutoMarkedSearch( const QString& searchText );

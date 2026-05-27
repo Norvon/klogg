@@ -610,6 +610,59 @@ SCENARIO( "Crawler widget auto marked searches are scoped to kept result tabs", 
     }
 }
 
+SCENARIO( "Crawler widget shared auto-mark owners keep marks until the last owner is removed",
+          "[ui]" )
+{
+    QTemporaryFile file{ "crawler_auto_marked_shared_owner_test_XXXXXX" };
+    REQUIRE( generateDataFiles( file ) );
+
+    Session session;
+    session.savedSearches().clear();
+
+    CrawlerWidgetVisitor crawlerVisitor;
+    crawlerVisitor.crawler.reset( static_cast<CrawlerWidget*>(
+        session.open( file.fileName(), []() { return new CrawlerWidget(); } ) ) );
+
+    waitUiState( [ & ]() { return crawlerVisitor.getLogNbLines().get() == SL_NB_LINES; } );
+    waitUiState( [ & ]() { return crawlerVisitor.isLoadingFinished(); } );
+
+    GIVEN( "two auto-marked searches matching the same line" )
+    {
+        crawlerVisitor.replaceSearchPattern( "line 000010" );
+        crawlerVisitor.runSearch();
+        crawlerVisitor.markCurrentSearchResults();
+
+        REQUIRE( crawlerVisitor.getMarksCount().get() == 1 );
+        REQUIRE( crawlerVisitor.autoMarkedSearchButtonCount() == 1 );
+
+        crawlerVisitor.replaceSearchPattern( "000010" );
+        crawlerVisitor.runSearch();
+        crawlerVisitor.markCurrentSearchResults();
+
+        REQUIRE( crawlerVisitor.getMarksCount().get() == 1 );
+        REQUIRE( crawlerVisitor.autoMarkedSearchButtonCount() == 2 );
+        REQUIRE( crawlerVisitor.autoMarkedSearchTooltip( 0 ) == "000010" );
+        REQUIRE( crawlerVisitor.autoMarkedSearchTooltip( 1 ) == "line 000010" );
+
+        WHEN( "one owning search is removed" )
+        {
+            crawlerVisitor.removeAutoMarkedSearch( 0 );
+
+            THEN( "the shared mark remains until the last owner is removed" )
+            {
+                REQUIRE( crawlerVisitor.getMarksCount().get() == 1 );
+                REQUIRE( crawlerVisitor.autoMarkedSearchButtonCount() == 1 );
+                REQUIRE( crawlerVisitor.autoMarkedSearchTooltip( 0 ) == "line 000010" );
+
+                crawlerVisitor.removeAutoMarkedSearch( 0 );
+
+                REQUIRE( crawlerVisitor.getMarksCount().get() == 0 );
+                REQUIRE( crawlerVisitor.autoMarkedSearchButtonCount() == 0 );
+            }
+        }
+    }
+}
+
 SCENARIO( "Crawler widget pending auto mark completion is scoped to its result tab", "[ui]" )
 {
     QTemporaryFile file{ "crawler_pending_auto_marked_tabs_test_XXXXXX" };

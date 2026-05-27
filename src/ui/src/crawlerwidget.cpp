@@ -1257,27 +1257,36 @@ uint64_t CrawlerWidget::markMatchesAsAutoMarked( FilteredView* view, LogFiltered
 
     auto& state = autoMarkedSearchStateFor( view );
     uint64_t newMarks = 0;
-    auto autoMarkedLines = state.linesBySearch.value( searchText );
+    auto& autoMarkedLines = state.linesBySearch[ searchText ];
     filteredData->iterateOverMatches(
-        [ this, view, filteredData, &newMarks, &autoMarkedLines ]( LineNumber line ) {
+        [ this, view, filteredData, &state, &newMarks, &autoMarkedLines ]( LineNumber line ) {
+            const auto lineKey = line.get();
             if ( !filteredData->lineTypeByLine( line ).testFlag(
                      AbstractLogData::LineTypeFlags::Mark ) ) {
                 filteredData->addMark( line );
-                autoMarkedLines.insert( line.get() );
+                if ( !autoMarkedLines.contains( lineKey ) ) {
+                    autoMarkedLines.insert( lineKey );
+                    ++state.ownerCountByLine[ lineKey ];
+                }
                 ++newMarks;
             }
             else if ( isAutoMarkedLine( view, line ) ) {
-                autoMarkedLines.insert( line.get() );
+                if ( !autoMarkedLines.contains( lineKey ) ) {
+                    autoMarkedLines.insert( lineKey );
+                    ++state.ownerCountByLine[ lineKey ];
+                }
             }
         } );
 
     if ( !autoMarkedLines.isEmpty() ) {
-        state.linesBySearch[ searchText ] = autoMarkedLines;
         state.searches.removeAll( searchText );
         state.searches.push_front( searchText );
         if ( view == filteredView_ ) {
             refreshAutoMarkedSearchButtons();
         }
+    }
+    else {
+        state.linesBySearch.remove( searchText );
     }
 
     return newMarks;
@@ -1384,10 +1393,7 @@ void CrawlerWidget::refreshAutoMarkedSearchButtons()
 bool CrawlerWidget::isAutoMarkedLine( FilteredView* view, LineNumber line ) const
 {
     const auto& state = autoMarkedSearchStateFor( view );
-    return std::any_of( state.linesBySearch.cbegin(), state.linesBySearch.cend(),
-                        [ line ]( const auto& markedLines ) {
-                            return markedLines.contains( line.get() );
-                        } );
+    return state.ownerCountByLine.value( line.get(), 0 ) > 0;
 }
 
 bool CrawlerWidget::isAutoMarkedLine( LineNumber line ) const
@@ -1395,25 +1401,13 @@ bool CrawlerWidget::isAutoMarkedLine( LineNumber line ) const
     return isAutoMarkedLine( filteredView_, line );
 }
 
-bool CrawlerWidget::hasOtherAutoMarkOwner( LineNumber line, const QString& searchText ) const
-{
-    const auto& state = currentAutoMarkedSearchState();
-    for ( auto it = state.linesBySearch.cbegin(); it != state.linesBySearch.cend();
-          ++it ) {
-        if ( it.key() != searchText && it.value().contains( line.get() ) ) {
-            return true;
-        }
-    }
-
-    return false;
-}
-
 void CrawlerWidget::removeLineFromAutoMarkedSearches( LineNumber line )
 {
     bool changed = false;
     auto& state = currentAutoMarkedSearchState();
+    const auto lineKey = line.get();
     for ( auto it = state.linesBySearch.begin(); it != state.linesBySearch.end(); ) {
-        if ( it.value().remove( line.get() ) > 0 ) {
+        if ( it.value().remove( lineKey ) > 0 ) {
             changed = true;
         }
 
@@ -1427,6 +1421,7 @@ void CrawlerWidget::removeLineFromAutoMarkedSearches( LineNumber line )
     }
 
     if ( changed ) {
+        state.ownerCountByLine.remove( lineKey );
         refreshAutoMarkedSearchButtons();
     }
 }
@@ -1436,6 +1431,7 @@ void CrawlerWidget::clearAutoMarkedSearches()
     auto& state = currentAutoMarkedSearchState();
     state.searches.clear();
     state.linesBySearch.clear();
+    state.ownerCountByLine.clear();
 
     if ( autoMarkedSearchesLayout_ != nullptr ) {
         refreshAutoMarkedSearchButtons();
@@ -1450,8 +1446,15 @@ void CrawlerWidget::removeAutoMarkedSearch( const QString& searchText )
 
     for ( const auto& line : markedLines ) {
         const auto lineNumber = LineNumber( line );
-        if ( !hasOtherAutoMarkOwner( lineNumber, searchText ) ) {
+        auto ownerCount = state.ownerCountByLine.find( line );
+        if ( ownerCount == state.ownerCountByLine.end() || ownerCount.value() <= 1 ) {
+            if ( ownerCount != state.ownerCountByLine.end() ) {
+                state.ownerCountByLine.erase( ownerCount );
+            }
             logFilteredData_->deleteMark( lineNumber );
+        }
+        else {
+            --ownerCount.value();
         }
     }
 
@@ -1471,6 +1474,7 @@ void CrawlerWidget::removeAllAutoMarkedSearches()
 
     state.searches.clear();
     state.linesBySearch.clear();
+    state.ownerCountByLine.clear();
 
     for ( const auto& line : markedLines ) {
         logFilteredData_->deleteMark( LineNumber( line ) );
