@@ -93,6 +93,19 @@ struct CrawlerWidget::access_by<CrawlerWidgetPrivate> {
         return crawler->logFilteredData_->getNbMarks();
     }
 
+    bool filteredVisibilityIsMatchesOnly() const
+    {
+        using VisibilityFlags = LogFilteredData::VisibilityFlags;
+        const auto visibility = crawler->filteredView_->visibility();
+        return visibility.testFlag( VisibilityFlags::Matches )
+               && !visibility.testFlag( VisibilityFlags::Marks );
+    }
+
+    int filteredVisibilityIndex() const
+    {
+        return crawler->visibilityBox_->currentIndex();
+    }
+
     void selectAllInMainView()
     {
         crawler->logMainView_->selectAll();
@@ -422,6 +435,8 @@ SCENARIO( "Crawler widget search", "[ui]" )
             THEN( "all lines are matched" )
             {
                 REQUIRE( crawlerVisitor.getLogFilteredNbLines().get() == SL_NB_LINES );
+                REQUIRE( crawlerVisitor.filteredVisibilityIsMatchesOnly() );
+                REQUIRE( crawlerVisitor.filteredVisibilityIndex() == 2 );
             }
 
             AND_WHEN( "mark current search results" )

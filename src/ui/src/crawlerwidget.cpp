@@ -678,6 +678,11 @@ void CrawlerWidget::updateFilteredViewForData( FilteredView* view, LogFilteredDa
         }
     }
 
+    constexpr auto MatchesVisibilityIndex = 2;
+    if ( progress == 100 && visibilityBox_->count() > MatchesVisibilityIndex ) {
+        visibilityBox_->setCurrentIndex( MatchesVisibilityIndex );
+    }
+
     // Try to restore the filtered window selection close to where it was
     // only for full searches to avoid disconnecting follow mode!
     if ( ( progress == 100 ) && ( initialPosition == searchStartLine_ )
