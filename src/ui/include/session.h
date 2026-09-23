@@ -83,6 +83,8 @@ class Session : public std::enable_shared_from_this<Session> {
     void getFileInfo( const ViewInterface* view, uint64_t* fileSize, uint64_t* fileNbLine,
                       QDateTime* lastModified ) const;
 
+    std::shared_ptr<const LogData> getLogData( const ViewInterface* view ) const;
+
     // Get a (non-const) reference to the QuickFind pattern.
     std::shared_ptr<QuickFindPattern> quickFindPattern() const
     {
@@ -177,6 +179,11 @@ class WindowSession {
                       QDateTime* lastModified ) const
     {
         return appSession_->getFileInfo( view, fileSize, fileNbLine, lastModified );
+    }
+
+    std::shared_ptr<const LogData> getLogData( const ViewInterface* view ) const
+    {
+        return appSession_->getLogData( view );
     }
 
     std::vector<QString> openedFiles() const

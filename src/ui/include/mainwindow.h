@@ -41,11 +41,13 @@
 
 #include <QMainWindow>
 #include <QMenu>
+#include <QSet>
 #include <QSystemTrayIcon>
 #include <QTemporaryDir>
 
 #include <QTranslator>
 #include <array>
+#include <cstdint>
 #include <memory>
 #include <mutex>
 
@@ -104,6 +106,12 @@ class MainWindow : public QMainWindow {
 
   private:
     enum class ActionInitiator { User, App };
+    enum class OpenFileMode {
+        // 普通文件会进入最近文件并参与会话恢复。
+        Regular,
+        // 临时派生文件只在当前窗口生命周期内保留。
+        Transient,
+    };
 
   private Q_SLOTS:
     void open();
@@ -121,6 +129,7 @@ class MainWindow : public QMainWindow {
     void openInEditor();
     void openClipboard();
     void openUrl();
+    void openMergedCopy();
     void editHighlighters();
     void editPredefinedFilters( const QString& newFilter = {} );
     void options();
@@ -199,7 +208,8 @@ class MainWindow : public QMainWindow {
     void createTrayIcon();
     void readSettings();
     void writeSettings();
-    bool loadFile( const QString& fileName, bool followFile = false );
+    bool loadFile( const QString& fileName, bool followFile = false,
+                   OpenFileMode openFileMode = OpenFileMode::Regular );
     bool extractAndLoadFile( const QString& fileName );
     void openRemoteFile( const QUrl& url );
     void updateTitleBar( const QString& fileName );
@@ -261,6 +271,7 @@ class MainWindow : public QMainWindow {
     QAction* openInEditorAction;
     QAction* openClipboardAction;
     QAction* openUrlAction;
+    QAction* openMergedCopyAction;
     QAction* overviewVisibleAction;
     QAction* lineNumbersVisibleInMainAction;
     QAction* lineNumbersVisibleInFilteredAction;
@@ -316,6 +327,8 @@ class MainWindow : public QMainWindow {
     TabbedScratchPad scratchPad_;
 
     QTemporaryDir tempDir_;
+    QSet<const CrawlerWidget*> transientCrawlers_;
+    uint64_t mergedCopyCounter_ = 0;
 
     bool isMaximized_ = false;
     bool isCloseFromTray_ = false;

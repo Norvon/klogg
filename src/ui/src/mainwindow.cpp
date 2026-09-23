@@ -44,6 +44,7 @@
 #include "containers.h"
 #include "log.h"
 #include <QNetworkReply>
+#include <algorithm>
 #include <cassert>
 #include <exception>
 
@@ -58,15 +59,19 @@
 
 #include <QClipboard>
 #include <QCloseEvent>
+#include <QCoreApplication>
 #include <QDialogButtonBox>
+#include <QFile>
 #include <QFileDialog>
 #include <QFileInfo>
+#include <QFutureWatcher>
 #include <QInputDialog>
 #include <QListView>
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QMimeData>
 #include <QProgressDialog>
+#include <QRegularExpression>
 #include <QResource>
 #include <QScreen>
 #include <QShortcut>
@@ -79,10 +84,13 @@
 #include <QUrl>
 #include <QUrlQuery>
 #include <QWindow>
+#include <QtConcurrent>
 
 #include "mainwindow.h"
 
+#include "atomicflag.h"
 #include "clipboard.h"
+#include "continuationlinemerger.h"
 #include "crawlerwidget.h"
 #include "decompressor.h"
 #include "dispatch_to.h"
@@ -94,6 +102,7 @@
 #include "issuereporter.h"
 #include "klogg_version.h"
 #include "logger.h"
+#include "logdata.h"
 #include "mainwindowtext.h"
 #include "openfilehelper.h"
 #include "optionsdialog.h"
@@ -108,9 +117,69 @@
 
 namespace {
 
+struct MergedLogFileResult {
+    bool canceled = false;
+    QString error;
+};
+
 void signalCrawlerToFollowFile( CrawlerWidget* crawler_widget )
 {
     dispatchToMainThread( [ crawler_widget ]() { crawler_widget->followSet( true ); } );
+}
+
+MergedLogFileResult createMergedLogFile( const std::shared_ptr<const LogData>& logData,
+                                         const QString& outputPath,
+                                         const QRegularExpression& prefixRegex,
+                                         const AtomicFlag& interruptRequest )
+{
+    try {
+        QFile output{ outputPath };
+        if ( !output.open( QIODevice::WriteOnly | QIODevice::Truncate ) ) {
+            return { false,
+                     QCoreApplication::translate( "MainWindow",
+                                                  "Failed to create merged copy: %1" )
+                         .arg( output.errorString() ) };
+        }
+
+        ContinuationLineMerger merger{ prefixRegex };
+        const auto totalLines = logData->getNbLine();
+        constexpr auto ChunkSize = 5000_lcount;
+
+        for ( auto firstLine = 0_lnum; firstLine < totalLines; firstLine += ChunkSize ) {
+            if ( interruptRequest ) {
+                return { true, {} };
+            }
+
+            const auto remainingLines = totalLines - LinesCount{ firstLine.get() };
+            const auto linesToRead = std::min( ChunkSize, remainingLines );
+            const auto lines = logData->getLines( firstLine, linesToRead );
+            for ( const auto& line : lines ) {
+                if ( interruptRequest ) {
+                    return { true, {} };
+                }
+                if ( !merger.appendLine( line, output ) ) {
+                    return { false,
+                             QCoreApplication::translate(
+                                 "MainWindow", "Failed to write merged copy: %1" )
+                                 .arg( output.errorString() ) };
+                }
+            }
+        }
+
+        if ( !merger.finish( output ) || !output.flush() ) {
+            return { false,
+                     QCoreApplication::translate( "MainWindow",
+                                                  "Failed to finish merged copy: %1" )
+                         .arg( output.errorString() ) };
+        }
+    } catch ( const std::exception& error ) {
+        return { false,
+                 QCoreApplication::translate( "MainWindow",
+                                              "Failed to create merged copy: %1" )
+                     .arg( QString::fromUtf8( error.what() ) ) };
+    }
+
+    return {};
 }
 
 static constexpr auto ClipboardMaxTry = 5;
@@ -359,6 +428,9 @@ void MainWindow::reTranslateUI()
     openUrlAction->setText( transAction( action::openUrlText ) );
     openUrlAction->setStatusTip( transAction( action::openUrlStatusTip ) );
 
+    openMergedCopyAction->setText( transAction( action::openMergedCopyText ) );
+    openMergedCopyAction->setStatusTip( transAction( action::openMergedCopyStatusTip ) );
+
     overviewVisibleAction->setText( transAction( action::overviewVisibleText ) );
 
     lineNumbersVisibleInMainAction->setText( transAction( action::lineNumbersVisibleInMainText ) );
@@ -545,6 +617,12 @@ void MainWindow::createActions()
     openUrlAction = new QAction( tr( action::openUrlText ), this );
     openUrlAction->setStatusTip( tr( action::openUrlStatusTip ) );
     connect( openUrlAction, &QAction::triggered, this, [ this ]( auto ) { this->openUrl(); } );
+
+    openMergedCopyAction = new QAction( tr( action::openMergedCopyText ), this );
+    openMergedCopyAction->setStatusTip( tr( action::openMergedCopyStatusTip ) );
+    openMergedCopyAction->setEnabled( false );
+    connect( openMergedCopyAction, &QAction::triggered, this,
+             [ this ]( auto ) { this->openMergedCopy(); } );
 
     overviewVisibleAction = new QAction( tr( action::overviewVisibleText ), this );
     overviewVisibleAction->setCheckable( true );
@@ -818,6 +896,7 @@ void MainWindow::createMenus()
     } );
 
     toolsMenu->addAction( predefinedFiltersDialogAction );
+    toolsMenu->addAction( openMergedCopyAction );
 
     toolsMenu->addSeparator();
     toolsMenu->addAction( showScratchPadAction );
@@ -1175,6 +1254,83 @@ void MainWindow::openUrl()
     }
 }
 
+void MainWindow::openMergedCopy()
+{
+    auto* crawler = currentCrawlerWidget();
+    if ( crawler == nullptr ) {
+        return;
+    }
+
+    const auto sourcePath = session_.getFilename( crawler );
+    if ( loadingFileName == sourcePath ) {
+        QMessageBox::information( this, tr( "klogg" ),
+                                  tr( "Wait until the current file has finished loading." ) );
+        return;
+    }
+
+    const auto prefixPattern = Configuration::get().fixedPrefixPattern();
+    const QRegularExpression prefixRegex{
+        prefixPattern, QRegularExpression::UseUnicodePropertiesOption
+    };
+    if ( prefixPattern.isEmpty() || !prefixRegex.isValid() || prefixRegex.captureCount() < 1 ) {
+        QMessageBox::warning(
+            this, tr( "klogg" ),
+            tr( "Configure a valid line prefix regex with a capture group first." ) );
+        return;
+    }
+
+    if ( !tempDir_.isValid() ) {
+        QMessageBox::critical( this, tr( "klogg" ),
+                               tr( "Failed to create the temporary directory." ) );
+        return;
+    }
+
+    const QFileInfo sourceInfo{ sourcePath };
+    const auto baseName
+        = sourceInfo.completeBaseName().isEmpty() ? QStringLiteral( "klogg" )
+                                                  : sourceInfo.completeBaseName();
+    const auto outputPath = tempDir_.filePath(
+        QStringLiteral( "%1-merged-%2.log" ).arg( baseName ).arg( ++mergedCopyCounter_ ) );
+
+    AtomicFlag interruptRequest;
+    QFutureWatcher<MergedLogFileResult> watcher;
+    QProgressDialog progressDialog{ this };
+    progressDialog.setLabelText( tr( "Creating merged continuation copy..." ) );
+    progressDialog.setRange( 0, 0 );
+    progressDialog.setWindowModality( Qt::ApplicationModal );
+
+    connect( &progressDialog, &QProgressDialog::canceled,
+             [ &interruptRequest ]() { interruptRequest.set(); } );
+    connect( &watcher, &QFutureWatcher<MergedLogFileResult>::finished, &progressDialog,
+             [ &progressDialog ]() { progressDialog.done( QDialog::Accepted ); } );
+
+    const auto logData = session_.getLogData( crawler );
+    watcher.setFuture( QtConcurrent::run( [ logData, outputPath, prefixRegex, &interruptRequest ] {
+        return createMergedLogFile( logData, outputPath, prefixRegex, interruptRequest );
+    } ) );
+
+    progressDialog.exec();
+    if ( !watcher.isFinished() ) {
+        interruptRequest.set();
+        watcher.waitForFinished();
+    }
+
+    const auto result = watcher.result();
+    if ( result.canceled ) {
+        QFile::remove( outputPath );
+        return;
+    }
+    if ( !result.error.isEmpty() ) {
+        QFile::remove( outputPath );
+        QMessageBox::critical( this, tr( "klogg" ), result.error );
+        return;
+    }
+
+    if ( !loadFile( outputPath, false, OpenFileMode::Transient ) ) {
+        QFile::remove( outputPath );
+    }
+}
+
 // Opens the 'Highlighters' dialog box
 void MainWindow::editHighlighters()
 {
@@ -1463,7 +1619,8 @@ void MainWindow::closeTab( int index, ActionInitiator initiator )
     widget->stopLoading();
     mainTabWidget_.removeCrawler( index );
 
-    if ( initiator == ActionInitiator::User ) {
+    const bool isTransient = transientCrawlers_.remove( widget ) > 0;
+    if ( initiator == ActionInitiator::User && !isTransient ) {
         addRecentFile( session_.getFilename( widget ) );
     }
 
@@ -1491,6 +1648,7 @@ void MainWindow::currentTabChanged( int index )
         updateFavoritesMenu();
 
         editMenu->setEnabled( true );
+        openMergedCopyAction->setEnabled( true );
     }
     else {
         // No tab left
@@ -1504,6 +1662,7 @@ void MainWindow::currentTabChanged( int index )
         updateTitleBar( QString() );
 
         editMenu->setEnabled( false );
+        openMergedCopyAction->setEnabled( false );
         addToFavoritesAction->setEnabled( false );
         addToFavoritesMenuAction->setEnabled( false );
     }
@@ -1739,7 +1898,7 @@ bool MainWindow::extractAndLoadFile( const QString& fileName )
 // Create a CrawlerWidget for the passed file, start its loading
 // and update the title bar.
 // The loading is done asynchronously.
-bool MainWindow::loadFile( const QString& fileName, bool followFile )
+bool MainWindow::loadFile( const QString& fileName, bool followFile, OpenFileMode openFileMode )
 {
     LOG_DEBUG << "loadFile ( " << fileName.toStdString() << " )";
 
@@ -1760,7 +1919,11 @@ bool MainWindow::loadFile( const QString& fileName, bool followFile )
         loadingFileName = fileName;
 
         try {
-            const auto previousViewContext = [ &fileName ]() {
+            const auto previousViewContext = [ &fileName, openFileMode ]() {
+                if ( openFileMode == OpenFileMode::Transient ) {
+                    return QString{};
+                }
+
                 const auto& session = SessionInfo::getSynced();
                 const auto& windows = session.windows();
                 for ( const auto& windowId : windows ) {
@@ -1785,6 +1948,10 @@ bool MainWindow::loadFile( const QString& fileName, bool followFile )
                 return false;
             }
 
+            if ( openFileMode == OpenFileMode::Transient ) {
+                transientCrawlers_.insert( crawler_widget );
+            }
+
             // We won't show the widget until the file is fully loaded
             crawler_widget->hide();
 
@@ -1803,11 +1970,14 @@ bool MainWindow::loadFile( const QString& fileName, bool followFile )
             // of the loading, with no way to switch to another tab
             mainTabWidget_.setCurrentIndex( index );
 
-            addRecentFile( fileName );
+            if ( openFileMode == OpenFileMode::Regular ) {
+                addRecentFile( fileName );
+            }
             updateOpenedFilesMenu();
 
             const auto& config = Configuration::get();
-            if ( config.anyFileWatchEnabled() && ( followFile || config.followFileOnLoad() ) ) {
+            if ( openFileMode == OpenFileMode::Regular && config.anyFileWatchEnabled()
+                 && ( followFile || config.followFileOnLoad() ) ) {
                 signalCrawlerToFollowFile( crawler_widget );
                 followAction->setChecked( true );
             }
@@ -2211,6 +2381,9 @@ void MainWindow::writeSettings()
         widget_list;
     for ( int i = 0; i < mainTabWidget_.count(); ++i ) {
         auto view = qobject_cast<const CrawlerWidget*>( mainTabWidget_.widget( i ) );
+        if ( transientCrawlers_.contains( view ) ) {
+            continue;
+        }
         widget_list.emplace_back( view, 0UL, view->context() );
     }
     session_.save( widget_list, saveGeometry() );

@@ -736,6 +736,42 @@
         <source>Remove from favorites</source>
         <translation>從書籤中移除</translation>
     </message>
+    <message>
+        <location filename="../../ui/src/mainwindow.cpp" line="138"/>
+        <location filename="../../ui/src/mainwindow.cpp" line="175"/>
+        <source>Failed to create merged copy: %1</source>
+        <translation>建立合併副本失敗：%1</translation>
+    </message>
+    <message>
+        <location filename="../../ui/src/mainwindow.cpp" line="162"/>
+        <source>Failed to write merged copy: %1</source>
+        <translation>寫入合併副本失敗：%1</translation>
+    </message>
+    <message>
+        <location filename="../../ui/src/mainwindow.cpp" line="171"/>
+        <source>Failed to finish merged copy: %1</source>
+        <translation>完成合併副本失敗：%1</translation>
+    </message>
+    <message>
+        <location filename="../../ui/src/mainwindow.cpp" line="1267"/>
+        <source>Wait until the current file has finished loading.</source>
+        <translation>請等待目前檔案載入完成。</translation>
+    </message>
+    <message>
+        <location filename="../../ui/src/mainwindow.cpp" line="1278"/>
+        <source>Configure a valid line prefix regex with a capture group first.</source>
+        <translation>請先設定一個含擷取群組的有效行首前綴正規表示式。</translation>
+    </message>
+    <message>
+        <location filename="../../ui/src/mainwindow.cpp" line="1284"/>
+        <source>Failed to create the temporary directory.</source>
+        <translation>建立暫存目錄失敗。</translation>
+    </message>
+    <message>
+        <location filename="../../ui/src/mainwindow.cpp" line="1298"/>
+        <source>Creating merged continuation copy...</source>
+        <translation>正在建立合併續行副本...</translation>
+    </message>
 </context>
 <context>
     <name>OptionsDialog</name>
@@ -1899,6 +1935,16 @@
         <location filename="../../ui/src/mainwindowtext.cpp" line="62"/>
         <source>Open URL as log file</source>
         <translation>開啟 URL 作為日誌檔案</translation>
+    </message>
+    <message>
+        <location filename="../../ui/src/mainwindowtext.cpp" line="63"/>
+        <source>Open merged continuation copy</source>
+        <translation>開啟合併續行副本</translation>
+    </message>
+    <message>
+        <location filename="../../ui/src/mainwindowtext.cpp" line="65"/>
+        <source>Open a temporary copy with continuation line breaks removed</source>
+        <translation>開啟移除續行換行的暫存副本</translation>
     </message>
     <message>
         <location filename="../../ui/src/mainwindowtext.cpp" line="63"/>

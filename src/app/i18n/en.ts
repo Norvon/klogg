@@ -736,6 +736,42 @@
         <source>This will shutdown klogg and generate diagnostic crash dump. Continue?</source>
         <translation>This will shutdown klogg and generate diagnostic crash dump. Continue?</translation>
     </message>
+    <message>
+        <location filename="../../ui/src/mainwindow.cpp" line="138"/>
+        <location filename="../../ui/src/mainwindow.cpp" line="175"/>
+        <source>Failed to create merged copy: %1</source>
+        <translation>Failed to create merged copy: %1</translation>
+    </message>
+    <message>
+        <location filename="../../ui/src/mainwindow.cpp" line="162"/>
+        <source>Failed to write merged copy: %1</source>
+        <translation>Failed to write merged copy: %1</translation>
+    </message>
+    <message>
+        <location filename="../../ui/src/mainwindow.cpp" line="171"/>
+        <source>Failed to finish merged copy: %1</source>
+        <translation>Failed to finish merged copy: %1</translation>
+    </message>
+    <message>
+        <location filename="../../ui/src/mainwindow.cpp" line="1267"/>
+        <source>Wait until the current file has finished loading.</source>
+        <translation>Wait until the current file has finished loading.</translation>
+    </message>
+    <message>
+        <location filename="../../ui/src/mainwindow.cpp" line="1278"/>
+        <source>Configure a valid line prefix regex with a capture group first.</source>
+        <translation>Configure a valid line prefix regex with a capture group first.</translation>
+    </message>
+    <message>
+        <location filename="../../ui/src/mainwindow.cpp" line="1284"/>
+        <source>Failed to create the temporary directory.</source>
+        <translation>Failed to create the temporary directory.</translation>
+    </message>
+    <message>
+        <location filename="../../ui/src/mainwindow.cpp" line="1298"/>
+        <source>Creating merged continuation copy...</source>
+        <translation>Creating merged continuation copy...</translation>
+    </message>
 </context>
 <context>
     <name>OptionsDialog</name>
@@ -1899,6 +1935,16 @@
         <location filename="../../ui/src/mainwindowtext.cpp" line="62"/>
         <source>Open URL as log file</source>
         <translation>Open URL as log file</translation>
+    </message>
+    <message>
+        <location filename="../../ui/src/mainwindowtext.cpp" line="63"/>
+        <source>Open merged continuation copy</source>
+        <translation>Open merged continuation copy</translation>
+    </message>
+    <message>
+        <location filename="../../ui/src/mainwindowtext.cpp" line="65"/>
+        <source>Open a temporary copy with continuation line breaks removed</source>
+        <translation>Open a temporary copy with continuation line breaks removed</translation>
     </message>
     <message>
         <location filename="../../ui/src/mainwindowtext.cpp" line="63"/>

@@ -90,6 +90,11 @@ void Session::getFileInfo( const ViewInterface* view, uint64_t* fileSize, uint64
     *lastModified = file->logData->getLastModifiedDate();
 }
 
+std::shared_ptr<const LogData> Session::getLogData( const ViewInterface* view ) const
+{
+    return findOpenFileFromView( view )->logData;
+}
+
 ViewInterface* Session::openAlways( const QString& file_name,
                                     const std::function<ViewInterface*()>& view_factory,
                                     const QString& view_context )

@@ -58,6 +58,8 @@ extern const char* openClipboardText;
 extern const char* openClipboardStatusTip;
 extern const char* openUrlText;
 extern const char* openUrlStatusTip;
+extern const char* openMergedCopyText;
+extern const char* openMergedCopyStatusTip;
 extern const char* overviewVisibleText;
 extern const char* lineNumbersVisibleInMainText;
 extern const char* lineNumbersVisibleInFilteredText;
