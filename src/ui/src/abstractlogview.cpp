@@ -216,6 +216,13 @@ QFontMetrics pixmapFontMetrics( const QFont& font )
     return devicePainter->fontMetrics();
 }
 
+qreal pixmapCharWidth( const QFont& font )
+{
+    QPixmap pm{ 1, 1 };
+    auto devicePainter = pixmapPainter( &pm, font );
+    return QFontMetricsF( devicePainter->font(), &pm ).horizontalAdvance( QLatin1Char( 'm' ) );
+}
+
 class LineChunk {
 public:
     LineChunk( LineColumn firstCol, LineColumn endCol, QColor foreColor, QColor backColor )
@@ -1653,6 +1660,7 @@ void AbstractLogView::updateDisplaySize()
     // Font is assumed to be mono-space (is restricted by options dialog)
     charHeight_ = std::max( pixmapFontMetrics_.height(), 1 );
     charWidth_ = textWidth( pixmapFontMetrics_, QString( "m" ) );
+    charWidthF_ = pixmapCharWidth( font() );
 
     // Update the scroll bars
     updateScrollBars();
@@ -1802,7 +1810,8 @@ LineLength AbstractLogView::getNbVisibleCols() const
     const auto scrollBarWidth = verticalScrollBar()->isVisible() ? verticalScrollBar()->width() : 0;
     const auto visibleTextWidth
         = std::max( viewport()->width() - leftMarginPx_ - scrollBarWidth, 0 );
-    const auto visibleColumns = visibleTextWidth / std::max( charWidth_, 1 ) + 1;
+    const auto visibleColumns
+        = static_cast<int>( std::floor( visibleTextWidth / std::max( charWidthF_, 1.0 ) ) ) + 1;
     return LineLength{ std::max( visibleColumns, 1 ) };
 }
 

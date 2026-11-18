@@ -403,6 +403,9 @@ class AbstractLogView : public QAbstractScrollArea, public SearchableWidgetInter
 
     // Text handling
     int charWidth_ = 1;
+    // 实际字宽常带小数（如 macOS Menlo 12 为 7.22px），算可见列数必须用它，
+    // 否则整数字宽偏小会多算列数，横向滚不到行尾
+    qreal charWidthF_ = 1.0;
     int charHeight_ = 10;
 
     // Popup menu
