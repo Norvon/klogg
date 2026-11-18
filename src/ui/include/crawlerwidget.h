@@ -90,6 +90,10 @@ class CrawlerWidget : public QSplitter,
   public:
     CrawlerWidget( QWidget* parent = nullptr );
 
+    // 字号快捷键由主窗口菜单项触发，见 MainWindow::createActions
+    void changeFontSize( bool increase );
+    void resetFontSize();
+
     // Get the line number of the first line displayed.
     LineNumber getTopLine() const;
     // Get the selected text as a string (from the main window)
@@ -387,8 +391,6 @@ class CrawlerWidget : public QSplitter,
 
     void saveSplitterSizes() const;
 
-    void changeFontSize( bool increase );
-    void resetFontSize();
     QFont configuredViewFont() const;
     void updateViewsFont( const QFont& font );
 

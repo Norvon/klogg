@@ -278,6 +278,9 @@ class MainWindow : public QMainWindow {
     QAction* fixedPrefixVisibleAction;
     QAction* followAction;
     QAction* textWrapAction;
+    QAction* increaseFontSizeAction;
+    QAction* decreaseFontSizeAction;
+    QAction* resetFontSizeAction;
     QAction* reloadAction;
     QAction* stopAction;
     QAction* editHighlightersAction;

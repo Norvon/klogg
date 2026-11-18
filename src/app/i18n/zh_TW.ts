@@ -1978,6 +1978,21 @@
     </message>
     <message>
         <location filename="../../ui/src/mainwindowtext.cpp" line="69"/>
+        <source>Increase font size</source>
+        <translation>放大字型</translation>
+    </message>
+    <message>
+        <location filename="../../ui/src/mainwindowtext.cpp" line="70"/>
+        <source>Decrease font size</source>
+        <translation>縮小字型</translation>
+    </message>
+    <message>
+        <location filename="../../ui/src/mainwindowtext.cpp" line="71"/>
+        <source>Reset font size</source>
+        <translation>重設字型大小</translation>
+    </message>
+    <message>
+        <location filename="../../ui/src/mainwindowtext.cpp" line="69"/>
         <source>&amp;Reload</source>
         <translation>重新載入(&amp;R)</translation>
     </message>

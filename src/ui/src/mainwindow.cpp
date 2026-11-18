@@ -440,6 +440,9 @@ void MainWindow::reTranslateUI()
 
     followAction->setText( transAction( action::followText ) );
     textWrapAction->setText( transAction( action::wrapText ) );
+    increaseFontSizeAction->setText( transAction( action::increaseFontSizeText ) );
+    decreaseFontSizeAction->setText( transAction( action::decreaseFontSizeText ) );
+    resetFontSizeAction->setText( transAction( action::resetFontSizeText ) );
     reloadAction->setText( transAction( action::reloadText ) );
     stopAction->setText( transAction( action::stopText ) );
 
@@ -660,6 +663,29 @@ void MainWindow::createActions()
     textWrapAction->setEnabled( true );
     connect( textWrapAction, &QAction::toggled, this, &MainWindow::textWrapSet );
 
+    // 字号快捷键挂在菜单项上：macOS 会在输入法之前处理菜单快捷键，
+    // 控件级 QShortcut 的 ⌘= / ⌘- 会被中文输入法吞掉
+    increaseFontSizeAction = new QAction( tr( action::increaseFontSizeText ), this );
+    connect( increaseFontSizeAction, &QAction::triggered, this, [ this ]( auto ) {
+        if ( auto crawler = currentCrawlerWidget() ) {
+            crawler->changeFontSize( true );
+        }
+    } );
+
+    decreaseFontSizeAction = new QAction( tr( action::decreaseFontSizeText ), this );
+    connect( decreaseFontSizeAction, &QAction::triggered, this, [ this ]( auto ) {
+        if ( auto crawler = currentCrawlerWidget() ) {
+            crawler->changeFontSize( false );
+        }
+    } );
+
+    resetFontSizeAction = new QAction( tr( action::resetFontSizeText ), this );
+    connect( resetFontSizeAction, &QAction::triggered, this, [ this ]( auto ) {
+        if ( auto crawler = currentCrawlerWidget() ) {
+            crawler->resetFontSize();
+        }
+    } );
+
     reloadAction = new QAction( tr( action::reloadText ), this );
     signalMux_.connect( reloadAction, SIGNAL( triggered() ), SLOT( reload() ) );
 
@@ -806,6 +832,9 @@ void MainWindow::updateShortcuts()
     setShortcuts( openUrlAction, ShortcutAction::MainWindowOpenFromUrl );
     setShortcuts( followAction, ShortcutAction::MainWindowFollowFile );
     setShortcuts( textWrapAction, ShortcutAction::MainWindowTextWrap );
+    setShortcuts( increaseFontSizeAction, ShortcutAction::CrawlerIncreaseFontSize );
+    setShortcuts( decreaseFontSizeAction, ShortcutAction::CrawlerDecreaseFontSize );
+    setShortcuts( resetFontSizeAction, ShortcutAction::CrawlerResetFontSize );
     setShortcuts( reloadAction, ShortcutAction::MainWindowReload );
     setShortcuts( stopAction, ShortcutAction::MainWindowStop );
     setShortcuts( showScratchPadAction, ShortcutAction::MainWindowScratchpad );
@@ -879,6 +908,10 @@ void MainWindow::createMenus()
     viewMenu->addAction( fixedPrefixVisibleAction );
     viewMenu->addSeparator();
     viewMenu->addAction( textWrapAction );
+    viewMenu->addSeparator();
+    viewMenu->addAction( increaseFontSizeAction );
+    viewMenu->addAction( decreaseFontSizeAction );
+    viewMenu->addAction( resetFontSizeAction );
     viewMenu->addSeparator();
     viewMenu->addAction( followAction );
     viewMenu->addSeparator();

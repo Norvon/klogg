@@ -2160,17 +2160,8 @@ void CrawlerWidget::registerShortcuts()
         configuredShortcuts, shortcuts_, this, Qt::WidgetWithChildrenShortcut,
         ShortcutAction::CrawlerDecreaseTopViewSize, [ this ]() { changeTopViewSize( -1 ); } );
 
-    ShortcutAction::registerShortcut(
-        configuredShortcuts, shortcuts_, this, Qt::WidgetWithChildrenShortcut,
-        ShortcutAction::CrawlerIncreaseFontSize, [ this ]() { changeFontSize( true ); } );
-
-    ShortcutAction::registerShortcut(
-        configuredShortcuts, shortcuts_, this, Qt::WidgetWithChildrenShortcut,
-        ShortcutAction::CrawlerDecreaseFontSize, [ this ]() { changeFontSize( false ); } );
-
-    ShortcutAction::registerShortcut(
-        configuredShortcuts, shortcuts_, this, Qt::WidgetWithChildrenShortcut,
-        ShortcutAction::CrawlerResetFontSize, [ this ]() { resetFontSize(); } );
+    // 字号快捷键改由主窗口菜单项承载：macOS 下中文输入法（如鼠须管）会吞掉控件级的
+    // ⌘= / ⌘-，菜单快捷键不受影响。这里不能再注册同键，否则会与菜单项冲突。
 
     const auto exitSearchKeySequence = QKeySequence( QKeySequence::Cancel );
     ShortcutAction::registerShortcut( exitSearchKeySequence.toString(), shortcuts_, this,

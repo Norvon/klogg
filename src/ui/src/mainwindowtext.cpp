@@ -70,6 +70,9 @@ const char* action::lineNumbersVisibleInFilteredText
 const char* action::fixedPrefixVisibleText = QT_TR_NOOP( "Fixed line &prefix column" );
 const char* action::followText = QT_TR_NOOP( "&Follow File" );
 const char* action::wrapText = QT_TR_NOOP( "&Wrap text" );
+const char* action::increaseFontSizeText = QT_TR_NOOP( "Increase font size" );
+const char* action::decreaseFontSizeText = QT_TR_NOOP( "Decrease font size" );
+const char* action::resetFontSizeText = QT_TR_NOOP( "Reset font size" );
 const char* action::reloadText = QT_TR_NOOP( "&Reload" );
 const char* action::stopText = QT_TR_NOOP( "&Stop" );
 const char* action::optionsText = QT_TR_NOOP( "&Preferences..." );

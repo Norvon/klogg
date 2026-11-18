@@ -1978,6 +1978,21 @@
     </message>
     <message>
         <location filename="../../ui/src/mainwindowtext.cpp" line="69"/>
+        <source>Increase font size</source>
+        <translation>Increase font size</translation>
+    </message>
+    <message>
+        <location filename="../../ui/src/mainwindowtext.cpp" line="70"/>
+        <source>Decrease font size</source>
+        <translation>Decrease font size</translation>
+    </message>
+    <message>
+        <location filename="../../ui/src/mainwindowtext.cpp" line="71"/>
+        <source>Reset font size</source>
+        <translation>Reset font size</translation>
+    </message>
+    <message>
+        <location filename="../../ui/src/mainwindowtext.cpp" line="69"/>
         <source>&amp;Reload</source>
         <translation>&amp;Reload</translation>
     </message>

@@ -2125,6 +2125,21 @@
     </message>
     <message>
         <location filename="../../ui/src/mainwindowtext.cpp" line="69"/>
+        <source>Increase font size</source>
+        <translation>增大字体</translation>
+    </message>
+    <message>
+        <location filename="../../ui/src/mainwindowtext.cpp" line="70"/>
+        <source>Decrease font size</source>
+        <translation>减小字体</translation>
+    </message>
+    <message>
+        <location filename="../../ui/src/mainwindowtext.cpp" line="71"/>
+        <source>Reset font size</source>
+        <translation>重置字体大小</translation>
+    </message>
+    <message>
+        <location filename="../../ui/src/mainwindowtext.cpp" line="69"/>
         <source>&amp;Reload</source>
         <translation>重新加载(&amp;R)</translation>
     </message>
