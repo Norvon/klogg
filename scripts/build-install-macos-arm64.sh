@@ -57,7 +57,18 @@ close_running_app() {
   done
 }
 
-configure_output="$(cmake --preset "${preset}" -S "${repo_root}")"
+build_version="$(date '+%y.%m.%d')"
+if [[ -f "${target_app}/Contents/Info.plist" ]]; then
+  installed_version="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' \
+    "${target_app}/Contents/Info.plist" 2>/dev/null || true)"
+  if [[ "${installed_version}" =~ ^([0-9]+\.[0-9]+)\.([0-9]+)$ ]]; then
+    # 同日重复打包也要更新 Finder 显示的三段版本号。
+    next_version="${BASH_REMATCH[1]}.$(( 10#${BASH_REMATCH[2]} + 1 ))"
+    build_version="$(printf '%s\n' "${build_version}" "${next_version}" | sort -V | tail -n 1)"
+  fi
+fi
+
+configure_output="$(cmake --preset "${preset}" -S "${repo_root}" "-DBUILD_VERSION:STRING=${build_version}")"
 printf '%s\n' "${configure_output}"
 
 build_dir="$(printf '%s\n' "${configure_output}" \
@@ -68,6 +79,8 @@ if [[ -z "${build_dir}" ]]; then
   exit 1
 fi
 
+# 先更新版本头文件，让增量构建重新编译版本库。
+cmake --build --preset "${preset}" --target generate_version
 cmake --build --preset "${preset}"
 
 source_app="${build_dir}/output/${app_name}"
@@ -76,6 +89,13 @@ if [[ ! -d "${source_app}" ]]; then
   exit 1
 fi
 
+built_version="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' \
+  "${source_app}/Contents/Info.plist")"
+if [[ "${built_version}" != "${build_version}" ]]; then
+  echo "Built app version ${built_version} does not match expected version ${build_version}" >&2
+  exit 1
+fi
+
 close_running_app "${process_name}"
 ditto "${source_app}" "${target_app}"
-echo "Installed ${target_app}"
+echo "Installed ${target_app} (${built_version})"
